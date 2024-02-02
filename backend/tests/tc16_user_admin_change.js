@@ -26,6 +26,11 @@ describe('[user/admin/change module]: PUT endpoint', () => {
             .send({ username: admin_username,  email: new_admin_email })
             .end((err, res) => {
                 expect(res).to.have.status(200);
+                expect(res.body).to.have.property('user');
+                expect(res.body.user).to.have.property('email');
+                expect(res.body.user).to.have.property('username');
+                expect(res.body.user.email).to.equal(new_admin_email);
+                expect(res.body.user.username).to.equal(admin_username);
                 done();
             });
     });
@@ -39,6 +44,11 @@ describe('[user/admin/change module]: PUT endpoint', () => {
             .send({ username: demo_username,  email: new_demo1_email })
             .end((err, res) => {
                 expect(res).to.have.status(200);
+                expect(res.body).to.have.property('user');
+                expect(res.body.user).to.have.property('email');
+                expect(res.body.user).to.have.property('username');
+                expect(res.body.user.email).to.equal(new_demo1_email);
+                expect(res.body.user.username).to.equal(demo_username);
                 done();
             });
     });
