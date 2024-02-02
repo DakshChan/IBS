@@ -26,6 +26,20 @@ services:
     ports:
       - "5432:5432"
 
+  postgres-test:
+    restart: always
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ibs
+      POSTGRES_DB: testibs
+    volumes:
+      - db_data:/var/lib/postgresql/test-data
+    ports:
+      - "5433:5432"
+
   backend:
     restart: always
     depends_on:
@@ -39,6 +53,7 @@ services:
       - ./backend:/backend
     env_file:
       - backend/.env
+
 
   frontend:
     restart: always

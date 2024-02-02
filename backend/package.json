@@ -8,7 +8,7 @@
     "dev": "nodemon app.js --legacy-watch",
     "deploy": "pm2 start --env production",
     "test": "node runTest.js",
-    "execute": "NODE_ENV=test PORT=3001 DATABASE_URL=postgres://ibs:password@localhost:5432/testibs PORT=3001 mocha ",
+    "execute": "NODE_ENV=test PORT=3001 DATABASE_URL=postgres://ibs:password@localhost:5433/testibs PORT=3001 mocha ",
     "migrate": "NODE_ENV=test npx sequelize-cli db:migrate",
     "migrateundo": "NODE_ENV=test npx sequelize-cli db:migrate:undo",
     "seed": "NODE_ENV=test npx sequelize-cli db:seed --seed"
