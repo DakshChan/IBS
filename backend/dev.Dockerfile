@@ -10,6 +10,4 @@ RUN npm install
 
 EXPOSE 3000
 
-RUN npx sequelize-cli db:migrate:undo:all && npx sequelize-cli db:migrate
-
 CMD ["npm", "run", "dev"]
