@@ -5,8 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "PORT=3000 node app",
+    "predev": "npx sequelize-cli db:migrate:undo:all && npx sequelize-cli db:migrate",
     "dev": "nodemon app.js --legacy-watch",
-    "start:dev": "sh startup.sh",
     "deploy": "pm2 start --env production",
     "test": "node runTest.js",
     "execute": "NODE_ENV=test PORT=3001 DATABASE_URL=postgres://ibs:password@localhost:5433/testibs PORT=3001 mocha ",
