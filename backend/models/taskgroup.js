@@ -43,7 +43,7 @@ TaskGroup.init({
 }, {
   sequelize,
   modelName: 'TaskGroup',
-  tableName: 'task_group',
+  tableName: 'taskgroups',
 });
 
 module.exports = TaskGroup;
