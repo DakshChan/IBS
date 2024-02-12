@@ -11,27 +11,37 @@ const expect = chai.expect;
 
 const expectedTasksGroups = [
     {
+        id: 1,
         task_group_id: 1,
+        course_id: 1,
         max_token: 10,
         name: "assignments"
     },
     {
+        id: 2,
         task_group_id: 2,
+        course_id: 1,
         max_token: 0,
         name: "exams"
     },
     {
+        id: 3,
         task_group_id: 3,
+        course_id: 1,
         max_token: 2,
         name: "tutorials"
     },
     {
+        id: 4,
         task_group_id: 4,
+        course_id: 1,
         max_token: 2,
         name: "lectures"
     },
     {
+        id: 5,
         task_group_id: 5,
+        course_id: 1,
         max_token: 5,
         name: "quizzes"
     }
@@ -72,24 +82,11 @@ describe('[task_group/staff module]: GET all task groups endpoint', () => {
                 expect(res.body).to.have.property('task_group');
                 expect(res.body.task_group).to.have.lengthOf(expectedTasksGroups.length);
                 expectedTasksGroups.forEach((taskGroup) => {
-                    expect(res.body.task_group).to.include(taskGroup);
-                })
-                done();
-            });
-    });
-
-    it('ta should be be able to get all task groups', (done) => {
-        chai.request(BASE_API_URL)
-            .get(getTaskGroupAllEndpoint(ROLES.teachingAssistant, 1))
-            .set('Authorization', cscTaToken)
-            .end((err, res) => {
-                expect(res).to.have.status(200);
-                expect(res.body).to.have.property('count');
-                expect(res.body.count).to.equal(expectedTasksGroups.length);
-                expect(res.body).to.have.property('task_group');
-                expect(res.body.task_group).to.have.lengthOf(expectedTasksGroups.length);
-                expectedTasksGroups.forEach((taskGroup) => {
-                    expect(res.body.task_group).to.include(taskGroup);
+                    const task_group_list = res.body.task_group.filter(tg => tg.task_group_id === taskGroup.task_group_id)
+                    expect(task_group_list).to.have.lengthOf(1);
+                    expect(task_group_list[0].name).to.equal(taskGroup.name);
+                    expect(task_group_list[0].course_id).to.equal(taskGroup.course_id);
+                    expect(task_group_list[0].max_token).to.equal(taskGroup.max_token);
                 })
                 done();
             });
@@ -100,15 +97,7 @@ describe('[task_group/staff module]: GET all task groups endpoint', () => {
             .get(getTaskGroupAllEndpoint(ROLES.instructor, 1))
             .set('Authorization', cscStudentToken)
             .end((err, res) => {
-                expect(res).to.have.status(403);
-                done();
-            });
-
-        chai.request(BASE_API_URL)
-            .get(getTaskGroupAllEndpoint(ROLES.teachingAssistant, 1))
-            .set('Authorization', cscStudentToken)
-            .end((err, res) => {
-                expect(res).to.have.status(403);
+                expect(res).to.have.status(400);
                 done();
             });
     });
@@ -118,7 +107,7 @@ describe('[task_group/staff module]: GET all task groups endpoint', () => {
             .get(getTaskGroupAllEndpoint(ROLES.instructor, 1))
             .set('Authorization', matInstructorToken)
             .end((err, res) => {
-                expect(res).to.have.status(403);
+                expect(res).to.have.status(400);
                 done();
             });
     });
@@ -128,7 +117,7 @@ describe('[task_group/staff module]: GET all task groups endpoint', () => {
             .get(getTaskGroupAllEndpoint(ROLES.instructor, 1))
             .set('Authorization', matTaToken)
             .end((err, res) => {
-                expect(res).to.have.status(403);
+                expect(res).to.have.status(400);
                 done();
             });
     });

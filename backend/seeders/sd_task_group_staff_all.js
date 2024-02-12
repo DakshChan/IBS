@@ -106,6 +106,7 @@ module.exports = {
             {
                 id: 1,
                 task_group_id: 1,
+                course_id: cscCourse.course_id,
                 max_token: 10,
                 name: "assignments",
                 createdAt: new Date(),
@@ -114,6 +115,7 @@ module.exports = {
             {
                 id: 2,
                 task_group_id: 2,
+                course_id: cscCourse.course_id,
                 max_token: 0,
                 name: "exams",
                 createdAt: new Date(),
@@ -122,6 +124,7 @@ module.exports = {
             {
                 id: 3,
                 task_group_id: 3,
+                course_id: cscCourse.course_id,
                 max_token: 2,
                 name: "tutorials",
                 createdAt: new Date(),
@@ -130,6 +133,7 @@ module.exports = {
             {
                 id: 4,
                 task_group_id: 4,
+                course_id: cscCourse.course_id,
                 max_token: 2,
                 name: "lectures",
                 createdAt: new Date(),
@@ -138,6 +142,7 @@ module.exports = {
             {
                 id: 5,
                 task_group_id: 5,
+                course_id: cscCourse.course_id,
                 max_token: 5,
                 name: "quizzes",
                 createdAt: new Date(),
