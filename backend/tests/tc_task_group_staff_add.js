@@ -37,6 +37,11 @@ describe('[task_group/staff module]: POST create task group endpoint', () => {
             .send({ max_token: 10, name: 'problem-sets' })
             .end((err, res) => {
                 expect(res).to.have.status(200);
+                expect(res.body).to.have.property('task_group');
+                expect(res.body.task_group).to.have.property('name');
+                expect(res.body.task_group).to.have.property('max_token');
+                expect(res.body.task_group.name).to.equal('problem-sets');
+                expect(res.body.task_group.max_token).to.equal(10);
                 done();
             });
     });
