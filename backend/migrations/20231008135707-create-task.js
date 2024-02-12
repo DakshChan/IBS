@@ -1,5 +1,4 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('tasks', {
@@ -8,6 +7,10 @@ module.exports = {
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
+      },
+      course_id: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
       },
       task: {
         type: Sequelize.STRING,
@@ -21,17 +24,65 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
       },
-      createdAt: {
+      weight: {
+        type: Sequelize.INTEGER,
         allowNull: false,
+      },
+      hidden: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+      },
+      min_member: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+      max_member: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+      max_token: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+      hide_interview: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+      },
+      hide_file: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+      },
+      change_group: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+      },
+      interview_group: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      task_group_id: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        // references: {
+        //   model: 'taskgroups',
+        //   key: 'id'
+        // }
+      },
+      starter_code_url: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      createdAt: {
+        allowNull: true,
         type: Sequelize.DATE
       },
       updatedAt: {
-        allowNull: false,
+        allowNull: true,
         type: Sequelize.DATE
       }
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropAllTables();
+    await queryInterface.dropTable('tasks');
   }
 };
