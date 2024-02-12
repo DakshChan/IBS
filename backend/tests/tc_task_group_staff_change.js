@@ -52,6 +52,28 @@ describe('[task_group/staff module]: PUT modify task group endpoint', () => {
             });
     });
 
+    it('cannot modify task group with missing max_token', (done) => {
+        chai.request(BASE_API_URL)
+            .put(modifyTaskGroupEndpoint(ROLES.instructor, 1))
+            .set('Authorization', cscInstructorToken)
+            .send({ task_group_id: 1 })
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                done();
+            });
+    });
+
+    it('cannot create task group with missing task_group_id', (done) => {
+        chai.request(BASE_API_URL)
+            .put(modifyTaskGroupEndpoint(ROLES.instructor, 1))
+            .set('Authorization', cscInstructorToken)
+            .send({ max_token: 2 })
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                done();
+            });
+    });
+
     it('instructor cannot modify task group tokens for a different course', (done) => {
         chai.request(BASE_API_URL)
             .put(modifyTaskGroupEndpoint(ROLES.instructor, 1))
