@@ -1,36 +1,33 @@
-'use strict';
-const {
-  Model
-} = require('sequelize');
-module.exports = (sequelize, DataTypes) => {
-  class task extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models) {
-      // define association here
-      Task.belongsTo(Course, { foreignKey: 'course_id', as: 'course' });
-      Task.belongsTo(TaskGroup, { foreignKey: 'task_group_id', as: 'taskGroup' });
-    }
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../helpers/database');
+
+class Task extends Model {
+  static associate(models) {
+    Task.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
+    Task.belongsTo(models.TaskGroup, { foreignKey: 'task_group_id', as: 'taskGroup' });
   }
-  task.init({
-    task: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    long_name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    due_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-  }, {
-    sequelize,
-    modelName: 'task',
-  });
-  return task;
-};
+}
+
+Task.init({
+  course_id: DataTypes.INTEGER,
+  task: DataTypes.STRING,
+  long_name: DataTypes.STRING,
+  due_date: DataTypes.DATE,
+  weight: DataTypes.INTEGER,
+  hidden: DataTypes.BOOLEAN,
+  min_member: DataTypes.INTEGER,
+  max_member: DataTypes.INTEGER,
+  max_token: DataTypes.INTEGER,
+  hide_interview: DataTypes.BOOLEAN,
+  hide_file: DataTypes.BOOLEAN,
+  change_group: DataTypes.BOOLEAN,
+  interview_group: DataTypes.STRING,
+  task_group_id: DataTypes.INTEGER,
+  starter_code_url: DataTypes.STRING
+}, {
+  sequelize,
+  modelName: 'Task',
+  tableName: 'tasks'
+});
+
+module.exports = Task;

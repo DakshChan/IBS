@@ -8,6 +8,10 @@ class Course extends Model {
       foreignKey: 'course_id',
       as: 'CourseRole', // Consistent alias
     });
+    Course.hasMany(models.Task, {
+      foreignKey: 'id',
+      as: 'Task', // Consistent alias
+    });
   }
 
   // Define any static methods if needed
