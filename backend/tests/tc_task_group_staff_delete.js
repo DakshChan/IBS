@@ -42,10 +42,11 @@ describe('[task_group/staff module]: DELETE task group endpoint', () => {
     });
 
     it('deleting non-existent task group errors', (done) => {
+        const random_task_group_id = 1000 + Math.random() * 10000 // randnum in range [1000, 10000]
         chai.request(BASE_API_URL)
             .delete(deleteTaskGroupEndpoint(ROLES.instructor, 1))
             .set('Authorization', cscInstructorToken)
-            .send({ task_group_id: 213812 }) // random id
+            .send({ task_group_id: random_task_group_id })
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 done();
