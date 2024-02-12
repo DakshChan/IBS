@@ -102,14 +102,55 @@ module.exports = {
             }
         ]);
 
-
+        await queryInterface.bulkInsert('taskgroups', [
+            {
+                id: 1,
+                task_group_id: 1,
+                max_token: 10,
+                name: "assignments",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                id: 2,
+                task_group_id: 2,
+                max_token: 0,
+                name: "exams",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                id: 3,
+                task_group_id: 3,
+                max_token: 2,
+                name: "tutorials",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                id: 4,
+                task_group_id: 4,
+                max_token: 2,
+                name: "lectures",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                id: 5,
+                task_group_id: 5,
+                max_token: 5,
+                name: "quizzes",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        ])
     },
 
     async down(queryInterface, Sequelize) {
         // Cleanup the seeded data
         await queryInterface.bulkDelete('taskgroups', null, {});
         await queryInterface.bulkDelete('course_role', null, {});
-        await queryInterface.bulkDelete('user_info', null, {});
         await queryInterface.bulkDelete('courses', null, {});
+        await queryInterface.bulkDelete('user_info', null, {});
     }
 };
