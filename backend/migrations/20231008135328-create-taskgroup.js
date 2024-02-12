@@ -1,4 +1,5 @@
 'use strict';
+const {DataTypes} = require("sequelize");
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -13,6 +14,11 @@ module.exports = {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
+      },
+      course_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        primaryKey: false,
       },
       max_token: {
         type: Sequelize.INTEGER,
@@ -32,6 +38,18 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE
       }
+    });
+
+    await queryInterface.addConstraint('taskgroups', {
+      fields: ['course_id'],
+      type: 'foreign key',
+      name: 'fkey_course_id',
+      references: {
+        table: 'courses',
+        field: 'course_id',
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
     });
   },
   async down(queryInterface, Sequelize) {

@@ -8,7 +8,12 @@ class TaskGroup extends Model {
 
   static associate(models) {
     // define association here
-    TaskGroup.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
+    TaskGroup.belongsTo(models.Course, {
+      foreignKey: 'course_id',
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
+      as: 'Course'
+    });
   }
 }
 
@@ -19,6 +24,11 @@ TaskGroup.init({
     allowNull: false,
     autoIncrement: true,
     primaryKey: true,
+  },
+  course_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    primaryKey: false,
   },
   max_token: {
     type: DataTypes.INTEGER,
@@ -33,7 +43,7 @@ TaskGroup.init({
 }, {
   sequelize,
   modelName: 'TaskGroup',
-  tableName: 'task_group',
+  tableName: 'taskgroups',
 });
 
 module.exports = TaskGroup;
