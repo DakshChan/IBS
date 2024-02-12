@@ -37,6 +37,11 @@ describe('[task_group/staff module]: PUT modify task group endpoint', () => {
             .send({ max_token: 15, task_group_id: 1 })
             .end((err, res) => {
                 expect(res).to.have.status(200);
+                expect(res.body).to.have.property('task_group');
+                expect(res.body.task_group).to.have.property('task_group_id');
+                expect(res.body.task_group).to.have.property('max_token');
+                expect(res.body.task_group.task_group_id).to.equal(1);
+                expect(res.body.task_group.max_token).to.equal(15);
                 done();
             });
     });
