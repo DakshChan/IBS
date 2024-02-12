@@ -68,7 +68,7 @@ describe('[task_group/staff module]: PUT modify task group endpoint', () => {
             });
     });
 
-    it('cannot create task group with missing task_group_id', (done) => {
+    it('cannot modify task group with missing task_group_id', (done) => {
         chai.request(BASE_API_URL)
             .put(modifyTaskGroupEndpoint(ROLES.instructor, 1))
             .set('Authorization', cscInstructorToken)
