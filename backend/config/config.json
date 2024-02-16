@@ -3,7 +3,7 @@
     "username": "ibs",
     "password": "password",
     "database": "ibs",
-    "host": "127.0.0.1",
+    "host": "postgres",
     "dialect": "postgres"
   },
   "test": {
