@@ -39,7 +39,7 @@ Group.init({
   }
 }, {
   sequelize,
-  modelName: 'groups',
+  modelName: 'Group',
 });
 
 
