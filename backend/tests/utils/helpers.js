@@ -21,6 +21,20 @@ async function getAuthBearerToken(username, password) {
     return `Bearer ${loginResponse.body.token}`;
 }
 
+/**
+ * Helper function that
+ * @param item result body check
+ * @param props payload attributes to check
+ */
+function checkPropertiesExist(item, props) {
+    const { expect } = require('chai');
+
+    props.forEach((prop) => {
+        expect(item).to.have.property(prop);
+    })
+}
+
 module.exports = {
     getAuthBearerToken,
+    checkPropertiesExist
 }

@@ -63,10 +63,6 @@ module.exports = {
       task_group_id: {
         type: Sequelize.INTEGER,
         allowNull: true,
-        // references: {
-        //   model: 'taskgroups',
-        //   key: 'id'
-        // }
       },
       starter_code_url: {
         type: Sequelize.STRING,
@@ -81,6 +77,31 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
+
+    await queryInterface.addConstraint('tasks', {
+      fields: ['course_id'],
+      type: 'foreign key',
+      name: 'fkey_course_id',
+      references: {
+        table: 'courses',
+        field: 'course_id',
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
+    });
+
+    await queryInterface.addConstraint('tasks', {
+      fields: ['task_group_id'],
+      type: 'foreign key',
+      name: 'fkey_task_group_id',
+      references: {
+        table: 'taskgroups',
+        field: 'task_group_id',
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
+    });
+
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('tasks');

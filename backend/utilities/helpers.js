@@ -129,13 +129,13 @@ function password_validate(password) {
 async function task_validate(course_id, task, student) {
     if (student) {
         var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + ".task WHERE task = ($1) AND hidden = 'false'",
-            [task]
+            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2) AND hidden = 'false'",
+            [task, course_id]
         );
     } else {
         var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + '.task WHERE task = ($1)',
-            [task]
+            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2)",
+            [task, course_id]
         );
     }
 
