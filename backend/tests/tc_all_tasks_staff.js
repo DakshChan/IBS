@@ -1,30 +1,21 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const app = require('../app');
+const {getAuthBearerToken} = require("./utils/helpers");
 const expect = chai.expect;
 
 chai.use(chaiHttp);
 
 describe('Get All Tasks of a Course by Instructor', () => {
     let instructorToken;
-
     before(async () => {
-        // Login as instructor to obtain token
-        const loginResponse = await chai.request("http://localhost:3001")
-            .post('/auth/login')
-            .send({
-                username: 'instructoruser',
-                password: 'instructorPassword'
-            });
-
-        expect(loginResponse).to.have.status(200);
-        instructorToken = loginResponse.body.token;
+        instructorToken = await getAuthBearerToken('instructoruser', 'instructorPassword');
     });
 
     it('should retrieve all tasks for a specific course and verify tasks', (done) => {
         chai.request("http://localhost:3001")
             .get('/instructor/course/1/task/all')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .end((err, res) => {
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('count').that.is.at.least(2);
@@ -42,7 +33,7 @@ describe('Get All Tasks of a Course by Instructor', () => {
     it('should retrieve 0 tasks for course that does not have any tasks', (done) => {
         chai.request("http://localhost:3001")
             .get('/instructor/course/2/task/all')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .end((err, res) => {
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('count').that.is.at.least(0);

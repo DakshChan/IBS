@@ -81,7 +81,19 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
+    await queryInterface.addConstraint('tasks', {
+      fields: ['task_group_id'],
+      type: 'foreign key',
+      name: 'fkey_taskgroup_id',
+      references: {
+        table: 'taskgroups',
+        field: 'task_group_id',
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
+    });
   },
+
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('tasks');
   }

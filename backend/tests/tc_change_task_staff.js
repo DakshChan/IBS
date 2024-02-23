@@ -10,21 +10,13 @@ chai.use(chaiHttp);
 describe('Change Task Details as Staff', () => {
     let instructorToken;
     before(async () => {
-        // Login as an instructor to obtain a token
-        const loginResponse = await chai.request("http://localhost:3001")
-            .post('/auth/login')
-            .send({
-                username: 'instructoruser',
-                password: 'instructorPassword'
-            });
-        expect(loginResponse).to.have.status(200);
-        instructorToken = loginResponse.body.token;
+        instructorToken = await getAuthBearerToken('instructoruser', 'instructorPassword');
     });
 
     it('should successfully change task details', (done) => {
         chai.request(BASE_API_URL)
             .put('/instructor/course/1/task/change')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({
                 course_id: 1,
                 task: "Task1",
@@ -52,7 +44,7 @@ describe('Change Task Details as Staff', () => {
     it('should fail to change task details due to invalid due date', (done) => {
         chai.request(BASE_API_URL)
             .put('/instructor/course/1/task/change')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({
                 task: "Task1",
                 task_group_id: "invalid_group_id"
@@ -66,7 +58,7 @@ describe('Change Task Details as Staff', () => {
     it('should fail to change task details due to course id does not exist', (done) => {
         chai.request(BASE_API_URL)
             .put('/instructor/course/1/task/change')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({
                 course_id: 2,
                 task: "Task1",
@@ -85,7 +77,6 @@ describe('Change Task Details as Staff', () => {
                 starter_code_url: "https://updated-starter-code.git"
             })
             .end((err, res) => {
-                console.log(res.body)
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task does not exist.' );
                 done();
@@ -94,7 +85,7 @@ describe('Change Task Details as Staff', () => {
     it('should fail to change task details due to task id does not exist', (done) => {
         chai.request(BASE_API_URL)
             .put('/instructor/course/1/task/change')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({
                 course_id: 1,
                 task: "InvalidTask",
@@ -113,7 +104,6 @@ describe('Change Task Details as Staff', () => {
                 starter_code_url: "https://updated-starter-code.git"
             })
             .end((err, res) => {
-                console.log(res.body)
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task does not exist.' );
                 done();

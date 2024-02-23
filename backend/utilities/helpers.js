@@ -44,7 +44,7 @@ function string_validate(string) {
  */
 async function weight_validate(new_task_weight, course_id) {
     let pg_res_task = await db.query(
-        'SELECT sum(weight) AS total_weight FROM course_' + course_id + '.task'
+        'SELECT sum(weight) AS total_weight FROM tasks'
     );
     let total_weight = pg_res_task.rows[0].total_weight || 0;
     if (typeof total_weight === 'string') {
@@ -129,13 +129,13 @@ function password_validate(password) {
 async function task_validate(course_id, task, student) {
     if (student) {
         var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + ".task WHERE task = ($1) AND hidden = 'false'",
-            [task]
+            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2) AND hidden = 'false'",
+            [task, course_id]
         );
     } else {
         var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + '.task WHERE task = ($1)',
-            [task]
+            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2)",
+            [task, course_id]
         );
     }
 

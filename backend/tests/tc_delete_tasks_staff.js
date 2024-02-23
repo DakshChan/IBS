@@ -11,22 +11,14 @@ chai.use(chaiHttp);
 describe('Delete Task Endpoint', () => {
     let instructorToken;
     before(async () => {
-        // Login as an instructor to obtain a token
-        const loginResponse = await chai.request("http://localhost:3001")
-            .post('/auth/login')
-            .send({
-                username: 'instructoruser',
-                password: 'instructorPassword'
-            });
-        expect(loginResponse).to.have.status(200);
-        instructorToken = loginResponse.body.token;
+        instructorToken = await getAuthBearerToken('instructoruser', 'instructorPassword');
     });
 
 
     it('should delete a task', (done) => {
         chai.request(BASE_API_URL)
             .delete('/instructor/course/1/task/delete')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({ task: 'Task1' })
             .end((err, res) => {
                 expect(res).to.have.status(200);
@@ -38,7 +30,7 @@ describe('Delete Task Endpoint', () => {
     it('should return an error if task is missing or invalid', (done) => {
         chai.request(BASE_API_URL)
             .delete('/instructor/course/1/task/delete')
-            .set('Authorization', `Bearer ${instructorToken}`)
+            .set('Authorization', instructorToken)
             .send({task: 'InvalidTask'})
             .end((err, res) => {
                 expect(res).to.have.status(400);
