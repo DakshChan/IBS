@@ -3,7 +3,7 @@ const chaiHttp = require('chai-http');
 const app = require("../app");
 const { getAuthBearerToken } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants");
-const {DataTypes} = require("sequelize"); // Adjust the path as per your project structure
+const {DataTypes} = require("sequelize");
 const expect = chai.expect;
 
 chai.use(chaiHttp);
@@ -25,9 +25,9 @@ describe('Delete Task Endpoint', () => {
 
     it('should delete a task', (done) => {
         chai.request(BASE_API_URL)
-            .delete('/instructor/course/1/task/delete') // Adjust endpoint as needed
+            .delete('/instructor/course/1/task/delete')
             .set('Authorization', `Bearer ${instructorToken}`)
-            .send({ task: 'Task1' }) // Task name from the seeded data
+            .send({ task: 'Task1' })
             .end((err, res) => {
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'The task is deleted.');
@@ -37,9 +37,9 @@ describe('Delete Task Endpoint', () => {
 
     it('should return an error if task is missing or invalid', (done) => {
         chai.request(BASE_API_URL)
-            .delete('/instructor/course/1/task/delete') // Adjust endpoint as needed
+            .delete('/instructor/course/1/task/delete')
             .set('Authorization', `Bearer ${instructorToken}`)
-            .send({task: 'InvalidTask'}) // No task provided
+            .send({task: 'InvalidTask'})
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
@@ -47,5 +47,4 @@ describe('Delete Task Endpoint', () => {
             });
     });
 
-    // Add more test cases as needed
 });

@@ -23,7 +23,7 @@ describe('Get All Tasks of a Course by Instructor', () => {
 
     it('should retrieve all tasks for a specific course and verify tasks', (done) => {
         chai.request("http://localhost:3001")
-            .get('/instructor/course/1/task/all') // Adjust endpoint as needed
+            .get('/instructor/course/1/task/all')
             .set('Authorization', `Bearer ${instructorToken}`)
             .end((err, res) => {
                 expect(res).to.have.status(200);
@@ -41,7 +41,7 @@ describe('Get All Tasks of a Course by Instructor', () => {
     });
     it('should retrieve 0 tasks for course that does not have any tasks', (done) => {
         chai.request("http://localhost:3001")
-            .get('/instructor/course/2/task/all') // Adjust endpoint as needed
+            .get('/instructor/course/2/task/all')
             .set('Authorization', `Bearer ${instructorToken}`)
             .end((err, res) => {
                 expect(res).to.have.status(200);

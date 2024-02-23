@@ -18,7 +18,7 @@ describe('Add Task as Admin', () => {
 
     it('should add a task to a task group', (done) => {
         chai.request(BASE_API_URL)
-            .post('/instructor/course/1/task/add') // Adjust endpoint as needed
+            .post('/instructor/course/1/task/add')
             .set('Authorization', instructorToken)
             .send({
                 course_id: 1,
@@ -44,7 +44,7 @@ describe('Add Task as Admin', () => {
     });
     it('fail to add task due to an invalid starter code url', (done) => {
         chai.request(BASE_API_URL)
-            .post('/instructor/course/1/task/add') // Adjust endpoint as needed
+            .post('/instructor/course/1/task/add')
             .set('Authorization', instructorToken)
             .send({
                 course_id: 1,
@@ -72,7 +72,7 @@ describe('Add Task as Admin', () => {
     });
     it('should fail to add a task due to missing task', (done) => {
         chai.request(BASE_API_URL)
-            .post('/instructor/course/1/task/add') // Adjust endpoint as needed
+            .post('/instructor/course/1/task/add')
             .set('Authorization', instructorToken)
             .send({
                 course_id: 1,
@@ -96,9 +96,5 @@ describe('Add Task as Admin', () => {
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
                 done();
             });
-    });
-
-    after(async () => {
-        // Cleanup if necessary
     });
 });

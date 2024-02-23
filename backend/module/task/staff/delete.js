@@ -4,27 +4,6 @@ const client = require("../../../setup/db");
 const { Task } = require("../../../models");
 
 router.delete("/", async (req, res) => {
-
-  // if (res.locals["task"] === "") {
-  //   res.status(400).json({ message: "The task is missing or invalid." });
-  //   return;
-  // }
-  //
-  // let sql_delete_task = "DELETE FROM tasks WHERE task = ($1)";
-  //
-  // client.query(sql_delete_task, [res.locals["task"]], (err, pg_res) => {
-  //   if (err) {
-  //     res.status(404).json({ message: "Unknown error." });
-  //     console.log(err);
-  //   } else {
-  //     if (pg_res.rowCount === 0) {
-  //       res.status(400).json({ message: "The task is invalid." });
-  //     } else {
-  //       res.status(200).json({ message: "The task is deleted." });
-  //     }
-  //   }
-  // });
-
   try {
     const { task } = req.body;
 
