@@ -1,6 +1,6 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const app = require('../app'); // Adjust the path as per your project structure
+const app = require('../app');
 const expect = chai.expect;
 
 chai.use(chaiHttp);
@@ -16,7 +16,6 @@ describe('Get Specific Task of a Specific Course by Instructor', () => {
                 username: 'instructoruser',
                 password: 'instructorPassword'
             });
-
         expect(loginResponse).to.have.status(200);
         instructorToken = loginResponse.body.token;
     });
