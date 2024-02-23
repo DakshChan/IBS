@@ -31,6 +31,7 @@ router.use("/:course_id/", function (req, res, next) {
                     res.status(403).json({ message: "You don't have permission to access." });
                     return;
                 }
+
                 retrieve_data(req).then(data => {
                     res.locals["course_id"] = req.params["course_id"];
                     res.locals["task"] = data["task"];
