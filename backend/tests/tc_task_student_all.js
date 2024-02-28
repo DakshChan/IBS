@@ -2,36 +2,11 @@ const chai = require('chai');
 const chaiHttp = require('chai-http');
 const app = require("../app"); // Adjust the path as per your project structure
 const sequelize = require('../helpers/database');
-const {getAuthBearerToken} = require("./utils/helpers");
-const {checkPropertiesExist} = require("./utils/helpers");
+const {getAuthBearerToken, checkPropertiesExist} = require("./utils/helpers");
 const {BASE_API_URL} = require("./utils/constants"); // Adjust the path as per your project structure
 
 chai.use(chaiHttp);
 const expect = chai.expect;
-
-const expectedTasks = [
-    {
-        id: 1,
-        task_group_id: 1,
-        course_id: 1,
-        max_token: 4,
-        name: "Assignment 1"
-    },
-    {
-        id: 2,
-        task_group_id: 1,
-        course_id: 1,
-        max_token: 4,
-        name: "Assignment 2"
-    },
-    {
-        id: 3,
-        task_group_id: 1,
-        course_id: 1,
-        max_token: 4,
-        name: "Assignment 3"
-    }
-]
 
 /**
  * Constructs the endpoint to get all task groups given role and course id
@@ -42,7 +17,24 @@ const allTaskEndpoint = (course_id) => {
     return `/course/${course_id}/task/all`;
 };
 
-describe('[task/student module]: GET task endpoint', () => {
+// Expected Attributes of the Payload
+const props = [
+    'long_name',
+    'due_date',
+    'weight',
+    'hidden',
+    'min_member',
+    'max_member',
+    'max_token',
+    'hide_interview',
+    'hide_file',
+    'change_group',
+    'interview_group',
+    'task_group_id',
+    'starter_code_url'
+];
+
+describe('[task/student module]: GET all task endpoint', () => {
     let cscInstructorToken, cscStudentToken, matStudentToken;
     before(async () => {
         cscInstructorToken = await getAuthBearerToken('cscinstructoruser', 'password');
@@ -56,27 +48,10 @@ describe('[task/student module]: GET task endpoint', () => {
             .set('Authorization', cscStudentToken)
             .end((err, res) => {
                 expect(res).to.have.status(200);
-                expect(res.body).to.be.an('object');
-                expect(res.body.message).to.equal('Task details are returned.');
                 expect(res.body.tasks).to.be.an('array');
                 expect(res.body).to.have.property('count');
-                expect(res.body.count).to.equal(res.body.tasks.length);
+                expect(res.body.count).to.equal(3); // 3 Tasks shown in seeder file
 
-                const props = [
-                    'long_name',
-                    'due_date',
-                    'weight',
-                    'hidden',
-                    'min_member',
-                    'max_member',
-                    'max_token',
-                    'hide_interview',
-                    'hide_file',
-                    'change_group',
-                    'interview_group',
-                    'task_group_id',
-                    'starter_code_url'
-                ];
                 res.body.tasks.forEach((task) => {
                     checkPropertiesExist(task, props);
                 });

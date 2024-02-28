@@ -22,7 +22,7 @@ async function getAuthBearerToken(username, password) {
 }
 
 /**
- * Helper function that
+ * Helper function that checks payload attributes
  * @param item result body check
  * @param props payload attributes to check
  */

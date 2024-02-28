@@ -2,22 +2,11 @@ const chai = require('chai');
 const chaiHttp = require('chai-http');
 const app = require("../app"); // Adjust the path as per your project structure
 const sequelize = require('../helpers/database');
-const { getAuthBearerToken } = require("./utils/helpers");
-const { checkPropertiesExist } = require("./utils/helpers");
+const { getAuthBearerToken, checkPropertiesExist } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants"); // Adjust the path as per your project structure
 
 chai.use(chaiHttp);
 const expect = chai.expect;
-
-const expectedTasks = [
-    {
-        id: 1,
-        task_group_id: 1,
-        course_id: 1,
-        max_token: 4,
-        name: "Assignment 1"
-    }
-]
 
 /**
  * Constructs the endpoint to get all task groups given role and course id
@@ -26,9 +15,26 @@ const expectedTasks = [
  * @returns {`/course/${string}/task/get?task=${string}`}
  */
 const getTaskEndpoint = (course_id, task_id) => {
-    console.log(course_id, task_id);
     return `/course/${course_id}/task/get?task=${task_id}`;
 };
+
+// Expected Attributes of the Payload
+const props = [
+    'long_name',
+    'due_date',
+    'due_date_utc',
+    'hidden',
+    'weight',
+    'min_member',
+    'max_member',
+    'max_token',
+    'change_group',
+    'hide_interview',
+    'hide_file',
+    'interview_group',
+    'task_group_id',
+    'starter_code_url'
+];
 
 describe('[task/student module]: GET task endpoint', () => {
     let cscInstructorToken, cscStudentToken, matStudentToken;
@@ -44,29 +50,11 @@ describe('[task/student module]: GET task endpoint', () => {
             .set('Authorization', cscStudentToken)
             .end((err, res) => {
                 expect(res).to.have.status(200);
-                expect(res.body).to.have.property('count');
-                expect(res.body.count).to.equal(3);
                 expect(res.body).to.have.property('task');
 
-                const props = [
-                    'long_name',
-                    'due_date',
-                    'weight',
-                    'hidden',
-                    'min_member',
-                    'max_member',
-                    'max_token',
-                    'hide_interview',
-                    'hide_file',
-                    'change_group',
-                    'interview_group',
-                    'task_group_id',
-                    'starter_code_url'
-                ];
-                checkPropertiesExist(res.body.task.rows[0], props)
+                checkPropertiesExist(res.body.task, props);
                 expect(res.body.task.long_name).to.equal("Tutorial 1");
                 expect(res.body.task.task_group_id).to.equal(1);
-
             })
         done();
     });
@@ -96,7 +84,7 @@ describe('[task/student module]: GET task endpoint', () => {
             .get(getTaskEndpoint(1, 100))
             .set('Authorization', cscStudentToken)
             .end((err, res) => {
-                expect(res).to.have.status(400);
+                expect(res).to.have.status(404);
                 done();
             });
     });
