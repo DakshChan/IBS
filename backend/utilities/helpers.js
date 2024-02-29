@@ -6,6 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
+const { Task } = require('../models/');
 
 const JWT_EXPIRY = '120m';
 
@@ -127,28 +128,42 @@ function password_validate(password) {
 }
 
 async function task_validate(course_id, task, student) {
-    if (student) {
-        var pg_res = await db.query(
-            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2) AND hidden = 'false'",
-            [task, course_id]
-        );
-    } else {
-        var pg_res = await db.query(
-            "SELECT * FROM tasks WHERE task = ($1) AND course_id = ($2)",
-            [task, course_id]
-        );
-    }
+    try {
+        let taskInstance;
 
-    if (pg_res.rowCount <= 0) {
-        return { task: '' };
-    } else {
-        return {
-            task: task,
-            change_group: pg_res.rows[0]['change_group'],
-            hide_interview: pg_res.rows[0]['hide_interview'],
-            hide_file: pg_res.rows[0]['hide_file'],
-            interview_group: pg_res.rows[0]['interview_group']
-        };
+        if (student) {
+            taskInstance = await Task.findOne({
+                where: {
+                    task: task,
+                    course_id: course_id,
+                    hidden: 'false',
+                },
+                attributes: ['task', 'change_group', 'hide_interview', 'hide_file', 'interview_group'],
+            });
+        } else {
+            taskInstance = await Task.findOne({
+                where: {
+                    task: task,
+                    course_id: course_id,
+                },
+                attributes: ['task', 'change_group', 'hide_interview', 'hide_file', 'interview_group'],
+            });
+        }
+
+        if (!taskInstance) {
+            return { task: '' };
+        } else {
+            return {
+                task: taskInstance.task,
+                change_group: taskInstance.change_group,
+                hide_interview: taskInstance.hide_interview,
+                hide_file: taskInstance.hide_file,
+                interview_group: taskInstance.interview_group,
+            };
+        }
+    } catch (error) {
+        console.error('Error validating task:', error);
+        throw error;
     }
 }
 
