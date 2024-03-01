@@ -6,6 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
+const { Task } = require("../models");
 
 const JWT_EXPIRY = '120m';
 
@@ -43,14 +44,21 @@ function string_validate(string) {
  * @returns {Promise<number>}
  */
 async function weight_validate(new_task_weight, course_id) {
-    let pg_res_task = await db.query(
-        'SELECT sum(weight) AS total_weight FROM course_' + course_id + '.task'
-    );
-    let total_weight = pg_res_task.rows[0].total_weight || 0;
-    if (typeof total_weight === 'string') {
-        total_weight = parseInt(total_weight);
+    try {
+        // Find the sum of weights of all tasks for the given course_id
+        const totalWeight = await Task.sum('weight', {
+            where: { course_id }
+        });
+
+        // Calculate the total weight including the new task's weight
+        const updatedTotalWeight = totalWeight + new_task_weight;
+
+        // Check if the updated total weight exceeds 100
+        return updatedTotalWeight > 100 ? 1 : 0;
+    } catch (error) {
+        console.error("Error validating task weight:", error);
+        return 1; // Return 1 indicating an error condition
     }
-    return total_weight + new_task_weight > 100 ? 1 : 0;
 }
 
 /**
@@ -127,28 +135,34 @@ function password_validate(password) {
 }
 
 async function task_validate(course_id, task, student) {
-    if (student) {
-        var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + ".task WHERE task = ($1) AND hidden = 'false'",
-            [task]
-        );
-    } else {
-        var pg_res = await db.query(
-            'SELECT * FROM course_' + course_id + '.task WHERE task = ($1)',
-            [task]
-        );
-    }
+    try {
+        let whereCondition = { task, course_id };
+        if (student) {
+            whereCondition.hidden = false;
+        }
 
-    if (pg_res.rowCount <= 0) {
+        // Find the task based on the conditions
+        const taskDetails = await Task.findOne({
+            where: whereCondition,
+            raw: true // Fetch raw data without model instances
+        });
+
+        if (!taskDetails) {
+            return { task: '' };
+        } else {
+            // Extract required fields from the taskDetails object
+            const { change_group, hide_interview, hide_file, interview_group } = taskDetails;
+            return {
+                task,
+                change_group,
+                hide_interview,
+                hide_file,
+                interview_group
+            };
+        }
+    } catch (error) {
+        console.error("Error validating task:", error);
         return { task: '' };
-    } else {
-        return {
-            task: task,
-            change_group: pg_res.rows[0]['change_group'],
-            hide_interview: pg_res.rows[0]['hide_interview'],
-            hide_file: pg_res.rows[0]['hide_file'],
-            interview_group: pg_res.rows[0]['interview_group']
-        };
     }
 }
 
