@@ -16,7 +16,6 @@ Task.init({
   task: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
   },
   long_name: {
     type: DataTypes.STRING,
@@ -32,7 +31,7 @@ Task.init({
   },
   hidden: {
     type: DataTypes.BOOLEAN,
-    allowNull: false,
+    defaultValue: false,
   },
   min_member: {
     type: DataTypes.INTEGER,

@@ -13,12 +13,16 @@ router.get("/", async (req, res) => {
             where: {
                 task: req.query.task
             },
-            attributes: ['task', 'long_name']
+            attributes: ['task', 'long_name', 'due_date', 'hidden', 'weight', 'min_member', 'max_member', 'max_token', 'change_group', 'hide_interview', 'hide_file', 'interview_group', 'task_group_id', 'starter_code_url']
         });
 
         if (!taskDetails) {
             return res.status(404).json({ message: "Task not found." });
         }
+
+        // Add the due_date_utc field
+        // taskDetails.due_date_utc = taskDetails.due_date.toISOString();
+        taskDetails.dataValues.due_date_utc = taskDetails.due_date.toISOString();
 
         return res.status(200).json({ message: "Task details are returned.", task: taskDetails });
 

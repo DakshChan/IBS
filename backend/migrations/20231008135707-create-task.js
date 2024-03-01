@@ -30,7 +30,7 @@ module.exports = {
       },
       hidden: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
+        defaultValue: false,
       },
       min_member: {
         type: Sequelize.INTEGER,

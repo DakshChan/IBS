@@ -47,7 +47,7 @@ module.exports = {
                 course_id: 1,
                 task: "Task1",
                 long_name: "Task 1 Long Name",
-                due_date: new Date('2023-12-31'),
+                due_date: new Date('2024-02-16 15:30:00'),
                 weight: 10,
                 hidden: false,
                 min_member: 1,

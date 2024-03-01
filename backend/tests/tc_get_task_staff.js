@@ -23,6 +23,13 @@ describe('Get Specific Task of a Specific Course by Instructor', () => {
                 expect(res.body).to.have.property('task');
                 expect(res.body.task).to.be.an('object');
                 expect(res.body.task).to.have.property('task', 'Task1');
+                expect(res.body.task).to.have.property('long_name', 'Task 1 Long Name');
+                expect(res.body.task).to.have.property('due_date', '2024-02-16T20:30:00.000Z');
+                expect(res.body.task).to.have.property('due_date_utc', '2024-02-16T20:30:00.000Z');
+                expect(res.body.task).to.have.property('weight', 10);
+                expect(res.body.task).to.have.property('hidden', false);
+                expect(res.body.task).to.have.property('hide_file', false);
+                expect(res.body.task).to.have.property('task_group_id', 1);
                 done();
             });
     });
