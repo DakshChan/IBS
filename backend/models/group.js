@@ -40,6 +40,7 @@ Group.init({
 }, {
   sequelize,
   modelName: 'Group',
+  tableName: 'groups'
 });
 
 

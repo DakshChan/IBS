@@ -45,7 +45,8 @@ GroupUser.init({
 }, {
   sequelize,
   modelName: 'GroupUser',
-  timestamps: false
+  timestamps: false,
+  tableName: 'group_user'
 });
 
 module.exports = GroupUser;
