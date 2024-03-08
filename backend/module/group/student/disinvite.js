@@ -1,47 +1,55 @@
+// routes/group/disinvite.js
 const express = require("express");
 const router = express.Router();
-const client = require("../../../setup/db");
+const { GroupUser, Group } = require('../../../models');
 const helpers = require("../../../utilities/helpers");
 
-router.delete("/", (req, res) => {
-	if (res.locals["change_group"] === false || (res.locals["interview_group"] !== "" && res.locals["interview_group"] !== null)) {
-		res.status(400).json({ message: "Changing group is not allowed for this task." });
-		return;
-	}
-	if (res.locals["task"] === "") {
-		res.status(400).json({ message: "The task is missing or invalid." });
-		return;
-	}
-
-	if (!("username" in req.body) || helpers.name_validate(req.body["username"])) {
-		res.status(400).json({ message: "The username is missing or has invalid format." });
-		return;
-	}
-
-	let sql_select_user = "SELECT * FROM course_" + res.locals["course_id"] + ".group_user WHERE task = ($1) AND username = ($2) AND status = 'confirmed'";
-	let sql_disinvite = "DELETE FROM course_" + res.locals["course_id"] + ".group_user WHERE task = ($1) AND username = ($2) AND status = 'pending'";
-
-	client.query(sql_select_user, [res.locals["task"] , res.locals["username"]], (err, pgRes) => {
-		if (err) {
-			res.status(404).json({ message: "Unknown error." });
-			console.log(err);
-			return;
-		} else if (pgRes.rowCount !== 1) {
-			res.status(403).json({ message: "You don't have access to cancel the invitation." });
-			return;
-		} else {
-			client.query(sql_disinvite, [res.locals["task"] , req.body["username"].toLowerCase()], (err, pgRes) => {
-				if (err) {
-					res.status(404).json({ message: "Unknown error." });
-					console.log(err);
-				} else if (pgRes.rowCount === 1) {
-					res.status(200).json({ message: "You have cancelled the invitation." });
-				} else if (pgRes.rowCount === 0) {
-					res.status(400).json({ message: "Invitation doesn't exist." });
-				}
-			});
+router.delete("/", async (req, res) => {
+	try {
+		if (!res.locals.change_group || (res.locals.interview_group !== "" && res.locals.interview_group !== null)) {
+			return res.status(400).json({ message: "Changing group is not allowed for this task." });
 		}
-	});
-})
+
+		if (!res.locals.task) {
+			return res.status(400).json({ message: "The task is missing or invalid." });
+		}
+
+		if (!req.body.username || helpers.name_validate(req.body.username)) {
+			return res.status(400).json({ message: "The username is missing or has an invalid format." });
+		}
+
+		const { username } = res.locals;
+		const { task } = res.locals.task;
+
+		// Check if the user has access to cancel the invitation
+		const groupUser = await GroupUser.findOne({
+			where: { username: username },
+			attributes: ['task_id', 'username', 'group_id', 'status']
+		});
+
+		console.log(username, groupUser.status)
+		if (!groupUser || groupUser.status !== 'confirmed') {
+			return res.status(403).json({ message: "You don't have access to cancel the invitation." });
+		}
+
+		// Delete the invitation
+		const deletedRows = await GroupUser.destroy({
+			where: {
+				task_id: groupUser.task_id,
+				username: req.body.username.toLowerCase(),
+				status: 'pending'
+			}
+		});
+
+		if (deletedRows > 0) {
+			return res.status(200).json({ message: "You have cancelled the invitation." });
+		} else {
+			return res.status(400).json({ message: "Invitation doesn't exist." });
+		}
+	} catch (error) {
+		console.error(error);
+		return res.status(500).json({ message: "Unknown error." });
+	}
+});
 
 module.exports = router;

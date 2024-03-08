@@ -6,6 +6,7 @@ router.get("/", async (req, res) => {
 	try {
 
 		const { username } = res.locals;
+		console.log({ username });
 
 		// Find the GroupUser record for the given username and task
 		const groupUser = await GroupUser.findOne({
