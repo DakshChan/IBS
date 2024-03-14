@@ -21,19 +21,19 @@ const criteriaList = [
     {
         criteria: 'Correctness',
         total: 80,
-        task: '1',
+        task: 'Assignment-1',
         description: 'In order to achieve a full 80/80 all test cases must pass.'
     },
     {
         criteria: 'Style',
         total: 20,
-        task: '1',
+        task: 'Assignment-1',
         description: 'In order to achieve a full 20/20 there must be no complaints from the linter.'
     },
     {
         criteria: 'Bonus',
         total: 10,
-        task: '1',
+        task: 'Assignment-1',
     }
 ]
 

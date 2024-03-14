@@ -68,7 +68,7 @@ module.exports = {
 
         const taskGroup = taskGroups[0];
 
-        // Seed tasks for the task group, '1'
+        // Seed tasks for the task group, 'Assignment-1'
         await queryInterface.bulkInsert('tasks', [
             {
                 course_id: cscCourse.course_id,
@@ -86,6 +86,33 @@ module.exports = {
                 interview_group: '1',
                 task_group_id: taskGroup.task_group_id,
                 starter_code_url: 'www.exampleinstructions.com',
+            }
+        ]);
+
+        // Seed Criteria for the tasks
+        await queryInterface.bulkInsert('criteria', [
+            {
+                criteria: 'Correctness',
+                total: 80,
+                description: 'In order to get full marks, all test cases must pass.',
+                task_name: 'Assignment-1',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                criteria: 'Code Style',
+                total: 20,
+                description: "Each complaint from the code linter will deduct 1 mark.",
+                task_name: 'Assignment-1',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                criteria: 'Bonus',
+                total: 10,
+                task_name: 'Assignment-1',
+                createdAt: new Date(),
+                updatedAt: new Date()
             }
         ]);
     },

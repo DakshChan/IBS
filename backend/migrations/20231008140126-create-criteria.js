@@ -13,7 +13,7 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      task_id: {
+      task_name: {
         type: Sequelize.STRING,
         allowNull: false,
       },

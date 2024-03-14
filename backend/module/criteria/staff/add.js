@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Criteria, Task } = require("../../../models"); // Adjust the path as per your project structure
+const { Criteria, Task } = require("../../../models");
 const helpers = require("../../../utilities/helpers");
 
 router.post("/", async (req, res) => {
@@ -37,10 +37,12 @@ router.post("/", async (req, res) => {
 
         // Create a new criteria
         await Criteria.create({
-            task_id: res.locals["task"],
+            task_name: res.locals["task"],
             criteria: req.body["criteria"],
             total: req.body["total"],
             description: description,
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
 
         return res.status(200).json({ message: "The criteria is added."});
