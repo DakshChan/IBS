@@ -9,6 +9,19 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      criteria_id: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+      username: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+      task_name: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+
       mark: {
         type: Sequelize.NUMERIC,
         allowNull: false,
