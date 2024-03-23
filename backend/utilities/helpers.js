@@ -7,6 +7,8 @@ const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
 
+const { VersionControlSystem } = require("../lib/version_control");
+
 const JWT_EXPIRY = '120m';
 
 function generateAccessToken(username, email, admin, roles) {
@@ -757,35 +759,35 @@ async function format_marks_all_tasks_csv(json, course_id, res, total) {
     });
 }
 
-async function gitlab_get_user_id(username) {
-    try {
-        let config_get_user_id = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN
-            }
-        };
-
-        let res = await axios.get(
-            process.env.GITLAB_URL + 'users?username=' + username,
-            config_get_user_id
-        );
-        if (res['data'].length <= 0) {
-            return -1;
-        }
-        return res['data'][0]['id'];
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return -1;
-    }
-}
+// async function gitlab_get_user_id(username) {
+//     try {
+//         let config_get_user_id = {
+//             headers: {
+//                 Authorization: 'Bearer ' + process.env.GITLAB_TOKEN
+//             }
+//         };
+//
+//         let res = await axios.get(
+//             process.env.GITLAB_URL + 'users?username=' + username,
+//             config_get_user_id
+//         );
+//         if (res['data'].length <= 0) {
+//             return -1;
+//         }
+//         return res['data'][0]['id'];
+//     } catch (err) {
+//         if (
+//             'response' in err &&
+//             'data' in err['response'] &&
+//             'message' in err['response']['data']
+//         ) {
+//             console.log(err['response']['data']['message']);
+//         } else {
+//             console.log(err);
+//         }
+//         return -1;
+//     }
+// }
 
 async function gitlab_create_group_and_project_no_user(course_id, group_id, task) {
     // Get the gitlab group id
@@ -1634,11 +1636,11 @@ module.exports = {
     download_all_submissions,
 
     // Gitlab related
-    gitlab_get_user_id,
-    gitlab_create_group_and_project_no_user,
-    gitlab_create_group_and_project_with_user,
-    gitlab_add_user_with_gitlab_group_id,
-    gitlab_add_user_without_gitlab_group_id,
-    gitlab_remove_user,
-    gitlab_get_commits
+    gitlab_get_user_id: VersionControlSystem.get_vcs_user_id,
+    gitlab_create_group_and_project_no_user: VersionControlSystem.create_group_and_project_no_user,
+    gitlab_create_group_and_project_with_user: VersionControlSystem.create_group_and_project_with_user,
+    gitlab_add_user_with_gitlab_group_id: VersionControlSystem.add_user_with_group_id,
+    gitlab_add_user_without_gitlab_group_id: VersionControlSystem.add_user_to_new_group,
+    gitlab_remove_user: VersionControlSystem.remove_user_from_group,
+    gitlab_get_commits: VersionControlSystem.get_commits,
 };
