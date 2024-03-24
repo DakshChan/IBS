@@ -30,7 +30,7 @@ module.exports = {
       },
       hidden: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
+        defaultValue: false,
       },
       min_member: {
         type: Sequelize.INTEGER,
@@ -101,8 +101,8 @@ module.exports = {
       onDelete: 'RESTRICT',
       onUpdate: 'RESTRICT',
     });
-
   },
+
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('tasks');
   }
