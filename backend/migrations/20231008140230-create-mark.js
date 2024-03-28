@@ -43,6 +43,19 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
+
+    await queryInterface.addConstraint('marks', {
+      fields: ['criteria_id'],
+      type: 'foreign key',
+      name: 'criteria_id',
+      references: {
+        table: 'criteria',
+        field: 'id',
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'RESTRICT',
+    });
+
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropAllTables();
