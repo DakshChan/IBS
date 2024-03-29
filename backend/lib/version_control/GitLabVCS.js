@@ -2,15 +2,7 @@ const AbstractVCS = require("./AbstractVCS");
 const db = require("../../setup/db");
 const axios = require("axios");
 
-class GitLabVCS extends AbstractVCS {
-    /**
-     *
-     * NEW gitlab_add_user_without_gitlab_group_id
-     * @param course_id
-     * @param group_id NOTE: Might not need
-     * @param username
-     * @returns
-     */
+class GitlabVCS extends AbstractVCS {
     static async add_user_to_new_group(course_id, group_id, username) {
         let pg_res = await db.query(
             'SELECT gitlab_group_id, gitlab_url FROM course_' +
@@ -37,13 +29,6 @@ class GitLabVCS extends AbstractVCS {
         );
     }
 
-    /**
-     * NEW gitlab_add_user_with_gitlab_group_id
-     * @param vcs_group_id
-     * @param vcs_url
-     * @param username
-     * @returns
-     */
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
 
         let user_id = await this.get_vcs_user_id(username);
@@ -85,13 +70,6 @@ class GitLabVCS extends AbstractVCS {
         return { success: true, gitlab_url: vcs_url };
     }
 
-    /**
-     * gitlab_create_group_and_project_no_user
-     * @param course_id
-     * @param group_id
-     * @param task
-     * @returns
-     */
     static async create_group_and_project_no_user(course_id, group_id, task) {
         // Get the gitlab group id
         let pg_res_gitlab_course_group_id = await db.query(
@@ -209,14 +187,6 @@ class GitLabVCS extends AbstractVCS {
         };
     }
 
-    /**
-     * gitlab_create_group_and_project_with_user
-     * @param course_id
-     * @param group_id
-     * @param username
-     * @param task
-     * @returns
-     */
     static async create_group_and_project_with_user(course_id, group_id, username, task) {
         let add_project = await this.create_group_and_project_no_user(course_id, group_id, task);
         if (add_project['success'] === false) {
@@ -231,13 +201,6 @@ class GitLabVCS extends AbstractVCS {
         );
     }
 
-    /**
-     * gitlab_remove_user
-     * @param course_id
-     * @param group_id
-     * @param username
-     * @returns
-     */
     static async remove_user_from_group(course_id, group_id, username) {
         // Get gitlab_group_id
         let pg_res = await db.query(
@@ -292,12 +255,7 @@ class GitLabVCS extends AbstractVCS {
         return { success: true };
     }
 
-    /**
-     * gitlab_get_user_id
-     * @param username
-     * @returns
-     */
-    static async get_vcs_user_id(username) {
+    static async get_user_id(username) {
         try {
             let config_get_user_id = {
                 headers: {
@@ -327,12 +285,6 @@ class GitLabVCS extends AbstractVCS {
         }
     }
 
-    /**
-     * gitlab_get_commits
-     * @param course_id
-     * @param group_id
-     * @returns
-     */
     static async get_commits(course_id, group_id) {
         // Get gitlab_project_id
         let pg_res = await db.query(
@@ -379,4 +331,4 @@ class GitLabVCS extends AbstractVCS {
     }
 }
 
-module.exports = GitLabVCS;
+module.exports = GitlabVCS;

@@ -1,8 +1,8 @@
 const MockVCS = require("./MockVCS");
-const GitLabVCS = require("./GitLabVCS");
+const GitlabVCS = require("./GitLabVCS");
 
 const VCS_MAP = {
-    gitlab: GitLabVCS,
+    gitlab: GitlabVCS,
     mock: MockVCS
 }
 

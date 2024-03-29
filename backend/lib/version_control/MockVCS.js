@@ -4,14 +4,6 @@ const axios = require("axios");
 const { User, Group, GroupUser, Course, Task } = require("../../models");
 
 class MockVCS extends AbstractVCS {
-
-    /**
-     * NEW gitlab_add_user_without_gitlab_group_id
-     * @param course_id
-     * @param group_id NOTE: Might not need
-     * @param username
-     * @returns
-     */
     static async add_user_to_new_group(course_id, group_id, username) {
         let group = await Group.findOne({ where: { group_id } });
 
@@ -35,13 +27,6 @@ class MockVCS extends AbstractVCS {
         );
     }
 
-    /**
-     * NEW gitlab_add_user_with_gitlab_group_id
-     * @param vcs_group_id
-     * @param vcs_url
-     * @param username
-     * @returns
-     */
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
         // 1. calls get_vcs_user_id(username) to get user_id
         let user_id = await this.get_vcs_user_id(username);
@@ -54,13 +39,6 @@ class MockVCS extends AbstractVCS {
 
     }
 
-    /**
-     * gitlab_create_group_and_project_no_user
-     * @param course_id
-     * @param group_id
-     * @param task
-     * @returns
-     */
     static async create_group_and_project_no_user(course_id, group_id, task) {
 
         let course = await Course.findOne( { where: { course_id } });
@@ -104,14 +82,6 @@ class MockVCS extends AbstractVCS {
         };
     }
 
-    /**
-     * gitlab_create_group_and_project_with_user
-     * @param course_id
-     * @param group_id
-     * @param username
-     * @param task
-     * @returns
-     */
     static async create_group_and_project_with_user(course_id, group_id, username, task) {
         // 1. calls create_group_and_project_no_user
 
@@ -131,14 +101,6 @@ class MockVCS extends AbstractVCS {
         );
     }
 
-    /**
-     * DONE
-     * gitlab_remove_user
-     * @param course_id
-     * @param group_id
-     * @param username
-     * @returns
-     */
     static async remove_user_from_group(course_id, group_id, username) {
         let group = await Group.findOne({ where: { group_id } });
 
@@ -159,14 +121,7 @@ class MockVCS extends AbstractVCS {
         return { success: true };
     }
 
-    /**
-     * gitlab_get_user_id
-     * DONE
-     * GET /users?username=:username
-     * @param username
-     * @returns
-     */
-    static async get_vcs_user_id(username) {
+    static async get_user_id(username) {
         if (username.contains("no_gitlab")) return -1;
 
         const user = await User.findOne({
@@ -181,13 +136,6 @@ class MockVCS extends AbstractVCS {
         return user.user_id;
     }
 
-    /**
-     * DONE
-     * gitlab_get_commits
-     * @param course_id
-     * @param group_id
-     * @returns
-     */
     static async get_commits(course_id, group_id) {
         // Get gitlab_project_id
         let group = await Group.findOne({ where: { group_id } });
