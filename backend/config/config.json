@@ -4,7 +4,8 @@
     "password": "password",
     "database": "ibs",
     "host": "postgres",
-    "dialect": "postgres"
+    "dialect": "postgres",
+    "logging": false
   },
   "test": {
     "username": "ibs",
@@ -12,6 +13,7 @@
     "database": "testibs",
     "host": "127.0.0.1",
     "dialect": "postgres",
-    "port": "5433"
+    "port": "5433",
+    "logging": false
   }
 }
