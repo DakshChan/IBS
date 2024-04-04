@@ -11,7 +11,7 @@
     "test": "node runTestByName.js",
     "execute": "NODE_ENV=test PORT=3001 DATABASE_URL=postgres://ibs:password@localhost:5433/testibs PORT=3001 mocha ",
     "migrate": "NODE_ENV=test npx sequelize-cli db:migrate",
-    "migrateundo": "NODE_ENV=test npx sequelize-cli db:migrate:undo",
+    "migrateundo": "NODE_ENV=test npx sequelize-cli db:migrate:undo:all",
     "seed": "NODE_ENV=test npx sequelize-cli db:seed --seed"
   },
   "repository": {
