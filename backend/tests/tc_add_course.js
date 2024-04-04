@@ -20,8 +20,6 @@ describe('Add Course Endpoint', () => {
 
         expect(loginResponse).to.have.status(200);
         adminToken = loginResponse.body.token; // Extract token
-        console.log("========");
-        console.log(adminToken);
 
         // Login as regular user to obtain token
         const regularUserLoginResponse = await chai.request("http://localhost:3001")
@@ -47,9 +45,6 @@ describe('Add Course Endpoint', () => {
                 hidden: false
             })
             .end((err, res) => {
-
-                console.log("error is: ");
-                console.log(err)
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'The course is added and the course specific tables have been created.');
                 expect(res.body).to.have.property('course_id');
