@@ -50,7 +50,7 @@ class MockVCS extends AbstractVCS {
         }
 
         // Get the starter code url
-        let taskRow = await Task.findOne({ where: { task } })
+        let taskRow = await Task.findOne({ where: { task, course_id } })
 
         let starter_code_url = null;
         if (
