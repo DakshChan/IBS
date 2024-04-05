@@ -29,7 +29,6 @@ describe('[group/staff module]: POST Create group for student', () => {
             .set('Authorization', instructorToken)
             .send({ task: "Task1", username: 'studentuser1' })
             .end((err, res) => {
-                console.log(res.body)
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'Group and Gitlab repo have been created. Student has been added to the Gitlab project.');
                 expect(res.body).to.have.property("group_id")
