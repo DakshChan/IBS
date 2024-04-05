@@ -9,12 +9,6 @@ const { BASE_API_URL } = require("./utils/constants");
 chai.use(chaiHttp);
 const expect = chai.expect;
 
-/**
- * Constructs the endpoint to disinvite a student from a group
- * @param course_id the id of the course
- * @param task the task ID
- * @returns {string} the constructed endpoint URL
- */
 const disinviteEndpoint = (course_id) => {
     return `/course/${course_id}/group/disinvite`;
 };
@@ -32,7 +26,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
         chai.request(BASE_API_URL)
             .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
-            .send({ username: "cscstudentuser2", task: "Task1" }) // Disinviting student with username 'cscstudentuser2'
+            .send({ username: "cscstudentuser2", task: "Task1" })
             .end((err, res) => {
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'You have cancelled the invitation.');
@@ -44,7 +38,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
         chai.request(BASE_API_URL)
             .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
-            .send({ username: "studentnogroup" }) // Trying to disinvite student with username 'studentnogroup'
+            .send({ username: "studentnogroup" })
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
@@ -56,7 +50,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
         chai.request(BASE_API_URL)
             .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
-            .send({ username: "studentnogroup", task: "Task1"  }) // Trying to disinvite student with username 'studentnogroup'
+            .send({ username: "studentnogroup", task: "Task1"  })
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'Invitation doesn\'t exist.');

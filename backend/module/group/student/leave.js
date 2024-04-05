@@ -1,34 +1,53 @@
 const express = require("express");
 const router = express.Router();
-const client = require("../../../setup/db");
-const helpers = require("../../../utilities/helpers");
+const { GroupUser, Task} = require('../../../models'); // Adjust the path as per your project structure
+const { gitlab_remove_user } = require('../../../utilities/helpers');
 
-router.delete("/", (req, res) => {
-	if (res.locals["change_group"] === false || (res.locals["interview_group"] !== "" && res.locals["interview_group"] !== null)) {
-		res.status(400).json({ message: "Changing group is not allowed for this task." });
-		return;
-	}
-	if (res.locals["task"] === "") {
-		res.status(400).json({ message: "The task is missing or invalid." });
-		return;
-	}
+router.delete("/", async (req, res) => {
+	try {
+		const { change_group, course_id, task, username } = res.locals;
 
-	let sql_leave = "DELETE FROM course_" + res.locals["course_id"] + ".group_user WHERE username = ($1) AND task = ($2) RETURNING group_id";
-
-	client.query(sql_leave, [res.locals["username"], res.locals["task"]], (err, pr_res_leave) => {
-		if (err) {
-			res.status(404).json({ message: "Unknown error." });
-			console.log(err);
-		} else {
-			if (pr_res_leave.rowCount === 1) {
-				let group_id = pr_res_leave.rows[0]["group_id"];
-				helpers.gitlab_remove_user(res.locals["course_id"], group_id, res.locals["username"]);
-				res.status(200).json({ message: "You have left the group." });
-			} else {
-				res.status(400).json({ message: "You were not in the group." });
-			}
+		if (!change_group) {
+			return res.status(400).json({ message: "Changing group is not allowed for this task." });
 		}
-	});
-})
+
+		if (!task) {
+			return res.status(400).json({ message: "The task is missing or invalid." });
+		}
+		// Find the task ID based on the provided criteria
+		const taskDetails = await Task.findOne({
+			where: { course_id, task }
+		});
+
+		if (!taskDetails) {
+			return res.status(400).json({ message: "Task not found." });
+		}
+
+		const taskId = taskDetails.id;
+
+		// Delete the group user entry and return the group_id
+		const groupUser = await GroupUser.findOne({
+			where: { username, task_id: taskId, },
+			attributes: ['group_id']
+		});
+
+		if (!groupUser) {
+			return res.status(400).json({ message: "You were not in the group." });
+		}
+
+		await GroupUser.destroy({
+			where: { username, task_id: taskId, }
+		});
+
+		const group_id = groupUser.group_id;
+
+		gitlab_remove_user(course_id, group_id, username);
+
+		return res.status(200).json({ message: "You have left the group." });
+	} catch (error) {
+		console.error(error);
+		return res.status(404).json({ message: "Unknown error." });
+	}
+});
 
 module.exports = router;

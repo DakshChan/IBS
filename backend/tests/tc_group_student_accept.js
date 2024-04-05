@@ -1,7 +1,7 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const app = require("../app"); // Adjust the path as per your project structure
-const { BASE_API_URL } = require("./utils/constants"); // Adjust the path as per your project structure
+const app = require("../app");
+const { BASE_API_URL } = require("./utils/constants");
 const { GroupUser } = require("../models");
 const {getAuthBearerToken} = require("./utils/helpers");
 

@@ -1,11 +1,8 @@
-// test/student/leaveGroup.test.js
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const app = require("../app");
-const sequelize = require('../helpers/database');
-const { getAuthBearerToken } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants");
-const { ROLES } = require("../helpers/constants")
+const {getAuthBearerToken} = require("./utils/helpers");
 
 chai.use(chaiHttp);
 const expect = chai.expect;
@@ -14,39 +11,32 @@ const leaveGroupEndpoint = (course_id) => {
     return `/course/${course_id}/group/leave`;
 };
 
-describe('[student/group/leave module]: DELETE leave group endpoint', () => {
-    let cscStudentToken, studentNoGroupToken;
+describe('Leave Group Endpoint', () => {
+    let cscStudentToken, cscStudent2Token, studentNoGroupToken;
 
     before(async () => {
         cscStudentToken = await getAuthBearerToken('cscstudentuser', 'password');
+        cscStudent2Token = await getAuthBearerToken('cscstudentuser2', 'password');
         studentNoGroupToken = await getAuthBearerToken('studentnogroup', 'password');
     });
 
-    it('should leave a group successfully', (done) => {
+    it('should leave the group successfully and return 200 status code', (done) => {
         chai.request(BASE_API_URL)
             .delete(leaveGroupEndpoint(1))
             .set('Authorization', cscStudentToken)
-            .send({ task: "Task1" }) // Assuming task ID is 1
-            .end(async (err, res) => {
+            .send({ task: 'Task1' })
+            .end((err, res) => {
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'You have left the group.');
-
-                // Verify the user is removed from the database
-                // const groupUser = await GroupUser.findOne({
-                //     where: { username: 'cscstudentuser', '$Group.Task.task$': 1 },
-                //     include: ['Group']
-                // });
-                // expect(groupUser).to.be.null;
-
                 done();
             });
     });
 
-    it('should return an error if not in a group', (done) => {
+    it('should return 400 status code when user is not in the group', (done) => {
         chai.request(BASE_API_URL)
             .delete(leaveGroupEndpoint(1))
             .set('Authorization', studentNoGroupToken)
-            .send({ task: "Task1" }) // Assuming task ID is 1
+            .send({ task: 'Task1' })
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'You were not in the group.');
@@ -54,8 +44,5 @@ describe('[student/group/leave module]: DELETE leave group endpoint', () => {
             });
     });
 
-    after(async () => {
-        // Clean up the database after tests
-        // await sequelize.sync({ force: true });
-    });
+    // Add more test cases as needed
 });

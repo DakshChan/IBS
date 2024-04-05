@@ -1,6 +1,6 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const app = require("../app"); // Adjust the path as per your project structure
+const app = require("../app");
 const { getAuthBearerToken } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants");
 
@@ -34,7 +34,7 @@ describe('POST /group_student_invite', () => {
         chai.request(BASE_API_URL)
             .post(inviteEndpoint(1))
             .set('Authorization', cscStudentToken)
-            .send({ task: "Task1" }) // Missing username field
+            .send({ task: "Task1" })
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The username is missing or has an invalid format.');

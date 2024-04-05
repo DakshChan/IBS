@@ -1,8 +1,8 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const app = require("../app"); // Adjust the path as per your project structure
+const app = require("../app");
 const { getAuthBearerToken } = require("./utils/helpers");
-const { BASE_API_URL } = require("./utils/constants"); // Adjust the path as per your project structure
+const { BASE_API_URL } = require("./utils/constants");
 
 
 
@@ -12,7 +12,7 @@ const expect = chai.expect;
 const createGroupEndpoint = (course_id) => {
     return `/course/${course_id}/group/create`;
 };
-// /course/{{course_id}}/group/create
+
 describe('POST /group_student_create', () => {
     let cscStudentToken, cscStudent2Token, studentNoGroupToken;
 

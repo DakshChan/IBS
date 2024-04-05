@@ -1,21 +1,14 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const app = require("../app"); // Adjust the path as per your project structure
+const app = require("../app");
 const sequelize = require('../helpers/database');
 const { getAuthBearerToken } = require("./utils/helpers");
-const { BASE_API_URL } = require("./utils/constants"); // Adjust the path as per your project structure
+const { BASE_API_URL } = require("./utils/constants");
 const { ROLES } = require("../helpers/constants")
 
 chai.use(chaiHttp);
 const expect = chai.expect;
 
-/**
- * Constructs the endpoint to modify a task group as the given role for the
- * course with given course id
- * @param role one of the values in ./constants.js ROLES
- * @param course_id the id of the course
- * @returns {`/${string}/course/${string}/task_group/change`}
- */
 const checkGroupEndpoint = (course_id, task) => {
     return `/course/${course_id}/group/check?task=${task}`;
 };
