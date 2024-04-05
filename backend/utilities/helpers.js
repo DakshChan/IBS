@@ -6,7 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task } = require("../models");
+const { Task, Criteria } = require("../models");
 
 const JWT_EXPIRY = '120m';
 
@@ -393,37 +393,48 @@ async function get_criteria_id(course_id, task, criteria) {
     }
 }
 
-async function get_criteria(course_id, task) {
-    let pg_res = await db.query(
-        'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1)',
-        [task]
-    );
+async function get_criteria(course_id, task_name) {
+    let task = await Task.findOne({
+        where: {
+            course_id: course_id,
+            task: task_name
+        }
+    });
+
+    let criterias = await Criteria.findAll({
+        where: { task_name: task.task }
+    });
 
     let all_criteria = {};
-    for (let row of pg_res.rows) {
+    for (let row of criterias) {
         let criteria = {};
-        criteria['task'] = row['task'];
-        criteria['criteria'] = row['criteria'];
-        criteria['total'] = parseFloat(row['total']);
-        criteria['description'] = row['description'];
+        criteria['task'] = row.dataValues.task_name;
+        criteria['criteria'] = row.dataValues.criteria;
+        criteria['total'] = parseFloat(row.dataValues.total);
+        criteria['description'] = row.dataValues.description;
 
-        all_criteria[row['criteria_id']] = criteria;
+        all_criteria[row.dataValues.id] = criteria;
     }
 
     return all_criteria;
 }
 
-async function get_total_out_of(course_id) {
-    let pg_res = await db.query(
-        'SELECT task, SUM(total) AS sum FROM course_' + course_id + '.criteria GROUP BY task',
-        []
-    );
+async function get_total_out_of(course_id, task_names) {
+    let tasks = await Task.findAll({
+        where: {course_id: course_id},
+        attributes: ["task"]
+    });
 
     let total_out_of = {};
-    for (let row of pg_res.rows) {
-        total_out_of[row['task']] = parseFloat(row['sum']);
-    }
 
+    for (let task of tasks) {
+        if (task_names.includes(task.task)) {
+            let criteriaSum = await Criteria.sum('total', {
+                where: { task_name: task.dataValues.task}
+            });
+            total_out_of[task.dataValues.task] = criteriaSum;
+        }
+    }
     return total_out_of;
 }
 
@@ -578,8 +589,13 @@ async function format_marks_one_task(json, course_id, task, total) {
             }
         }
 
-        let criteria_name = all_criteria[row['criteria_id']]['criteria'];
-        marks[username][criteria_name]['mark'] = parseFloat(row['mark']);
+        // Find Criteria name from Criteria ID
+        let criteria_name = await Criteria.findOne({
+            where: {id: row.dataValues.criteria_id},
+            attributes: ["criteria"]
+        });
+
+        marks[username][criteria_name.dataValues.criteria]['mark'] = parseFloat(row.dataValues.mark);
     }
 
     if (total) {
@@ -593,7 +609,6 @@ async function format_marks_one_task(json, course_id, task, total) {
             marks[username]['Total'] = { mark: temp_total, out_of: temp_out_of };
         }
     }
-
     return marks;
 }
 
@@ -604,37 +619,36 @@ async function format_marks_one_task(json, course_id, task, total) {
  * @returns {Promise<*|string>}
  */
 async function get_task_weight(course_id, task_name) {
-    let pg_res = await db.query(
-        'SELECT weight FROM course_' + course_id + '.task WHERE task = ($1)',
-        [task_name]
-    );
+    let task = await Task.findOne({
+        where: {course_id: course_id, task: task_name},
+        attributes: ['weight']
+    });
 
-    if (pg_res.rowCount === 0) {
-        return '';
-    } else {
-        return pg_res.rows[0]['weight'];
-    }
+    return task ? task.weight : '';
 }
 
 async function format_marks_all_tasks(json, course_id) {
     let marks = {};
-    let total_out_of = await get_total_out_of(course_id);
+
+    const taskNames = json.map(mark => mark.dataValues.task_name);
+    const uniqueTaskNames = [...new Set(taskNames)];
+
+    let total_out_of = await get_total_out_of(course_id, taskNames);
 
     for (let row of json) {
-        let username = row['username'];
+        let username = row.dataValues.username;
+        let task = row.dataValues.task_name;
+
         if (!(username in marks)) {
             marks[username] = {};
-            for (let task in total_out_of) {
-                const task_weight = await get_task_weight(course_id, row['task']);
-                marks[username][task] = {
-                    mark: 0,
-                    out_of: total_out_of[task],
-                    weight: task_weight
-                };
+            const task_weight = await get_task_weight(course_id, task);
+            marks[username][task] = {
+                mark: 0,
+                out_of: total_out_of[task],
+                weight: task_weight
             }
         }
-
-        marks[username][row['task']]['mark'] = parseFloat(row['sum']);
+        marks[username][row.dataValues.task_name]['mark'] = parseInt(row.dataValues.sum);
     }
     return marks;
 }

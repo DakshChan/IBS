@@ -161,7 +161,7 @@ module.exports = {
                 criteria_id: 2,
                 username: 'cscstudentusera',
                 task_name: 'Assignment-1',
-                mark: 15,
+                mark: 20,
                 hidden: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -170,7 +170,7 @@ module.exports = {
                 criteria_id: 3,
                 username: 'cscstudentusera',
                 task_name: 'Assignment-1',
-                mark: 20,
+                mark: 10,
                 hidden: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
