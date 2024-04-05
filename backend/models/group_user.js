@@ -1,0 +1,51 @@
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../helpers/database');
+
+class GroupUser extends Model {
+  /**
+   * Helper method for defining associations.
+   * This method is not a part of Sequelize lifecycle.
+   * The `models/index` file will call this method automatically.
+   */
+  static associate(models) {
+    GroupUser.belongsTo(models.Group, {
+      onUpdate: 'RESTRICT',
+      onDelete: 'RESTRICT',
+    });
+
+    GroupUser.belongsTo(models.Task, {
+      onUpdate: 'RESTRICT',
+      onDelete: 'RESTRICT'
+    });
+
+    GroupUser.belongsTo(models.User, {
+      onUpdate: 'RESTRICT',
+      onDelete: 'RESTRICT'
+    })
+  }
+}
+
+GroupUser.init({
+  task_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+  },
+  username: {
+    type: DataTypes.STRING,
+    primaryKey: true,
+  },
+  group_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('confirmed', 'pending'),
+    allowNull: false
+  }
+}, {
+  sequelize,
+  modelName: 'GroupUser',
+  timestamps: false
+});
+
+module.exports = GroupUser;

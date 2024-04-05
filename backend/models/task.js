@@ -9,22 +9,66 @@ class Task extends Model {
 }
 
 Task.init({
-  course_id: DataTypes.INTEGER,
-  task: DataTypes.STRING,
-  long_name: DataTypes.STRING,
-  due_date: DataTypes.DATE,
-  weight: DataTypes.INTEGER,
-  hidden: DataTypes.BOOLEAN,
-  min_member: DataTypes.INTEGER,
-  max_member: DataTypes.INTEGER,
-  max_token: DataTypes.INTEGER,
-  hide_interview: DataTypes.BOOLEAN,
-
-  hide_file: DataTypes.BOOLEAN,
-  change_group: DataTypes.BOOLEAN,
-  interview_group: DataTypes.STRING,
-  task_group_id: DataTypes.INTEGER,
-  starter_code_url: DataTypes.STRING
+  course_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  task: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  long_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  due_date: {
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  weight: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  hidden: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  min_member: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  },
+  max_member: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  max_token: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  hide_interview: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  hide_file: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  change_group: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  interview_group: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  task_group_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  starter_code_url: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
 }, {
   sequelize,
   modelName: 'Task',
