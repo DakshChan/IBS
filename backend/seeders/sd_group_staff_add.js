@@ -106,9 +106,9 @@ module.exports = {
                 group_id: 2,
                 task_id: tasks[0].id,
                 extension: 0,
-                gitlab_group_id: '',
-                gitlab_project_id: '',
-                gitlab_url: '',
+                gitlab_group_id: 'gg2',
+                gitlab_project_id: 'gp2',
+                gitlab_url: 'https://www.temporary-url.com/',
                 createdAt: new Date(),
                 updatedAt: new Date()
             }

@@ -5,9 +5,10 @@ const { User, Group, GroupUser, Course, Task } = require("../../models");
 
 class MockVCS extends AbstractVCS {
     static async add_user_to_new_group(course_id, group_id, username) {
-        let group = await Group.findOne({ where: { group_id } });
-
-        if (!group) {
+        let group;
+        try {
+            group = await Group.findOne({ where: { group_id } });
+        } catch (e) {  // Couldn't find a group with given group_id
             return { success: false, code: 'group_not_exist' };
         }
 
@@ -20,7 +21,7 @@ class MockVCS extends AbstractVCS {
             return { success: false, code: 'group_not_exist' };
         }
 
-        return await this.add_user_with_group_id(
+        return await MockVCS.add_user_with_group_id(
             group.gitlab_group_id,
             group.gitlab_url,
             username
@@ -28,8 +29,9 @@ class MockVCS extends AbstractVCS {
     }
 
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
+        console.log("I AM HERE")
         // 1. calls get_vcs_user_id(username) to get user_id
-        let user_id = await this.get_user_id(username);
+        let user_id = await MockVCS.get_user_id(username);
 
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
@@ -122,7 +124,7 @@ class MockVCS extends AbstractVCS {
     }
 
     static async get_user_id(username) {
-        if (username.contains("no_gitlab")) return -1;
+        if (username.includes("no_gitlab")) return -1;
 
         const user = await User.findOne({
             where: {
