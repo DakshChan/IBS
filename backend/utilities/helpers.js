@@ -401,6 +401,10 @@ async function get_criteria(course_id, task_name) {
         }
     });
 
+    if (!task) {
+        throw new Error('Task not found');
+    }
+
     let criterias = await Criteria.findAll({
         where: { task_name: task.task }
     });
@@ -577,6 +581,10 @@ async function format_marks_one_task(json, course_id, task, total) {
     let marks = {};
     let all_criteria = await get_criteria(course_id, task);
 
+    if (Object.keys(all_criteria).length === 0) {
+        return {};
+    }
+
     for (let row of json) {
         let username = row['username'];
         if (!(username in marks)) {
@@ -595,7 +603,12 @@ async function format_marks_one_task(json, course_id, task, total) {
             attributes: ["criteria"]
         });
 
-        marks[username][criteria_name.dataValues.criteria]['mark'] = parseFloat(row.dataValues.mark);
+        if (!row.dataValues.mark) {
+            return {};
+        }
+        else {
+            marks[username][criteria_name.dataValues.criteria]['mark'] = parseFloat(row.dataValues.mark);
+        }
     }
 
     if (total) {
@@ -650,6 +663,7 @@ async function format_marks_all_tasks(json, course_id) {
         }
         marks[username][row.dataValues.task_name]['mark'] = parseInt(row.dataValues.sum);
     }
+
     return marks;
 }
 

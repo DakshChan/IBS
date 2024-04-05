@@ -9,14 +9,11 @@ router.get("/", async (req, res) => {
     let total;
     try {
         total = req.body["total"] === true || req.body["total"] === "true";
-
         const task = req.body["task"];
 
         let marksData;
         let marks;
         if (!task) {
-            console.log("ALL TASK");
-
             // Retrieve all marks for the student
             marksData = await Mark.findAll({
                 where: {username: res.locals.username, hidden: false},

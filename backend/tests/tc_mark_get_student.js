@@ -31,7 +31,6 @@ const markListPayload = [
         total: false
     },
     {
-        task: 'Assignment-2',
         total: true
     }
 ]
@@ -45,7 +44,7 @@ describe('Get Mark as Student Endpoint', () => {
         cscInstructorToken = await getAuthBearerToken('cscinstructoruser', 'password');
     });
 
-    it('A student has a submitted and non-hidden mark should be able to view their total mark.', (done) => {
+    it('A student has a submitted and non-hidden mark should be able to view their marks with the task name specified.', (done) => {
         chai.request(BASE_API_URL)
             .get(getStudentMarkEndpoint(1))
             .set('Authorization', cscStudentWithMarkToken)
@@ -80,7 +79,7 @@ describe('Get Mark as Student Endpoint', () => {
             });
     });
 
-    it('A student has a submitted and non-hidden mark should be able to view their individual marks.', (done) => {
+    it('A student has a submitted and non-hidden mark should be able to view all marks.', (done) => {
         chai.request(BASE_API_URL)
             .get(getStudentMarkEndpoint(1))
             .set('Authorization', cscStudentWithMarkToken)
@@ -100,23 +99,11 @@ describe('Get Mark as Student Endpoint', () => {
     });
 
 
-    it('A student has a submitted mark but its hidden. They should not be able to view any mark.', (done) => {
+    it('A student has a submitted mark but its hidden with a specified task. No marks should be shown, and it should throw an error', (done) => {
         chai.request(BASE_API_URL)
             .get(getStudentMarkEndpoint(1))
             .set('Authorization', cscStudentWithMarkToken)
             .send(markListPayload[2])
-            .end((err, res) => {
-                expect(res).to.have.status(404);
-                expect(res.body).to.have.property('message', 'Unknown error.');
-                done();
-            });
-    });
-
-    it('A student has a submitted mark but its hidden. They should not be able to view any mark.', (done) => {
-        chai.request(BASE_API_URL)
-            .get(getStudentMarkEndpoint(1))
-            .set('Authorization', cscStudentWithMarkToken)
-            .send(markListPayload[3])
             .end((err, res) => {
                 expect(res).to.have.status(404);
                 expect(res.body).to.have.property('message', 'Unknown error.');
