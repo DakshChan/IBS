@@ -6,7 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task, GroupUser, Group } = require("../models");
+const { Task, GroupUser, Group, User } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
 const {GROUP_STATUS} = require("../helpers/constants");
@@ -311,17 +311,23 @@ function send_email(email, subject, body) {
 
 async function send_email_by_group(course_id, group_id, subject, body) {
     let group_emails = '';
-    let pg_res_user = await db.query(
-        'SELECT username FROM course_' +
-            course_id +
-            ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
-        [group_id]
-    );
-    for (let row of pg_res_user.rows) {
-        let pg_res_email = await db.query('SELECT email FROM user_info WHERE username = ($1)', [
-            row['username']
-        ]);
-        group_emails = group_emails + pg_res_email.rows[0]['email'] + ', ';
+    const group_members = await GroupUser.findAll({
+        attributes: ['username'],
+        where: {
+            group_id: group_id,
+            status: GROUP_STATUS.confirmed
+        }
+    });
+
+    for (let row of group_members) {
+        const user = await User.findOne({
+            attributes: ['email'],
+            where: {
+                username: row['username']
+            }
+        })
+
+        group_emails = group_emails + user.email + ', ';
     }
 
     await send_email(group_emails, subject, body);
