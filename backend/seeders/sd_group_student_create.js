@@ -108,33 +108,6 @@ module.exports = {
             }
         ]);
 
-        await queryInterface.bulkInsert('groups', [
-            {
-                group_id: 1,
-                task_id: 1,
-                extension: 0,
-                gitlab_group_id: null,
-                gitlab_project_id: null,
-                gitlab_url: "https://testuser.git",
-                createdAt: new Date(),
-                updatedAt: new Date()
-            }
-        ]);
-
-        await queryInterface.bulkInsert('group_user', [
-            {
-                task_id: 1,
-                username: "cscstudentuser",
-                group_id: 1,
-                status: 'confirmed',
-            },
-            {
-                task_id: 1,
-                username: "cscstudentuser2",
-                group_id: 1,
-                status: 'pending',
-            }
-        ]);
     },
 
     async down(queryInterface, Sequelize) {

@@ -36,5 +36,15 @@ describe('POST /group_student_create', () => {
             });
     });
 
-    // Add more test cases for different scenarios
+    it('should not allow creating a group if the task is missing or invalid', (done) => {
+        chai.request(BASE_API_URL)
+            .post(createGroupEndpoint(1))
+            .set('Authorization', cscStudentToken)
+            .send({ change_group: true })
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                expect(res.body).to.have.property('message', 'The task is missing or invalid.');
+                done();
+            });
+    });
 });
