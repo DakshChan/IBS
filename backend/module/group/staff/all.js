@@ -2,23 +2,38 @@ const express = require("express");
 const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
+const { Task, Group, GroupUser } = require("../../../models")
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
     if (res.locals["task"] === "") {
         res.status(400).json({ message: "The task is missing or invalid." });
         return;
     }
 
-    let sql_groups = "SELECT * FROM (course_" + res.locals["course_id"] + ".group AS t1 INNER JOIN (SELECT group_id, array_agg(username) AS users FROM course_" + res.locals["course_id"] + ".group_user WHERE task = ($1) GROUP BY group_id) AS t2 ON t1.group_id = t2.group_id) WHERE array_length(users, 1) != 0";
+    const task = await Task.findOne({ where: { task: res.locals.task, course_id: res.locals["course_id"] }});
 
-    client.query(sql_groups, [res.locals["task"]], (err, pg_res_groups) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-            console.log(err);
-        } else {
-            res.status(200).json({ count: pg_res_groups.rowCount, groups: pg_res_groups.rows });
-        }
-    });
+    // Getting groups for this task
+    const studentGroups = await Group.findAll({ where: { task_id: task.id }});
+
+    const groups = [];
+
+    for (const group of studentGroups) {
+        const usernames = await GroupUser.findAll({ where: { group_id: group.group_id }, attributes: ['username']});
+        const users = usernames.map((username) => username.username);
+        groups.push({
+            group_id: group.group_id,
+            task_id: group.task_id,
+            extension: group.extension,
+            gitlab_group_id: group.gitlab_group_id,
+            gitlab_project_id: group.gitlab_project_id,
+            gitlab_url: group.gitlab_url,
+            createdAt: group.createdAt,
+            updatedAt: group.updatedAt,
+            users,
+        })
+    }
+
+    return res.status(200).json({ count: groups.length, groups });
 })
 
 module.exports = router;
