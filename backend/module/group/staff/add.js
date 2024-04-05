@@ -16,7 +16,6 @@ router.post("/", async (req, res) => {
 	}
 
 	// Checking if the user exists
-
 	const user = await User.findOne({ where: { username: req.body.username } });
 	if (!user) return res.status(400).json({ message: "The username is not found in the database." });
 
