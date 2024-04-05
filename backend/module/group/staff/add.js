@@ -40,7 +40,6 @@ router.post("/", async (req, res) => {
 	});
 
 	helpers.gitlab_add_user_without_gitlab_group_id(res.locals["course_id"], req.body["group_id"], req.body["username"].toLowerCase()).then(result => {
-		console.log(result)
 		if (result["success"] === true) {
 			let message = "User has been added to the group.";
 			return res.status(200).json({ message: message, group_id: req.body["group_id"], gitlab_url: result["gitlab_url"] });
