@@ -29,7 +29,6 @@ class MockVCS extends AbstractVCS {
     }
 
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
-        console.log("I AM HERE")
         // 1. calls get_vcs_user_id(username) to get user_id
         let user_id = await MockVCS.get_user_id(username);
 
@@ -90,13 +89,13 @@ class MockVCS extends AbstractVCS {
             // 1.1 if fail
 
             // 1.2 calls add_user_with_group_id()
-        let add_project = await this.create_group_and_project_no_user(course_id, group_id, task);
+        let add_project = await MockVCS.create_group_and_project_no_user(course_id, group_id, task);
         if (add_project['success'] === false) {
             return add_project;
         }
 
         // Add the user to the subgroup
-        return await this.add_user_with_group_id(
+        return await MockVCS.add_user_with_group_id(
             add_project['gitlab_group_id'],
             add_project['gitlab_url'],
             username
@@ -115,7 +114,7 @@ class MockVCS extends AbstractVCS {
         }
 
         // Get user_id
-        let user_id = await this.get_user_id(username);
+        let user_id = await MockVCS.get_user_id(username);
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
         }
