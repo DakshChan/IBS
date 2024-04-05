@@ -29,7 +29,7 @@ class MockVCS extends AbstractVCS {
 
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
         // 1. calls get_vcs_user_id(username) to get user_id
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await this.get_user_id(username);
 
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
@@ -113,7 +113,7 @@ class MockVCS extends AbstractVCS {
         }
 
         // Get user_id
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await this.get_user_id(username);
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
         }
