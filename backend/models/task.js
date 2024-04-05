@@ -19,6 +19,7 @@ Task.init({
   max_member: DataTypes.INTEGER,
   max_token: DataTypes.INTEGER,
   hide_interview: DataTypes.BOOLEAN,
+
   hide_file: DataTypes.BOOLEAN,
   change_group: DataTypes.BOOLEAN,
   interview_group: DataTypes.STRING,
