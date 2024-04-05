@@ -5,7 +5,6 @@ const app = require("../app");
 const sequelize = require('../helpers/database');
 const { getAuthBearerToken } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants");
-const { ROLES } = require("../helpers/constants")
 
 chai.use(chaiHttp);
 const expect = chai.expect;
@@ -16,8 +15,8 @@ const expect = chai.expect;
  * @param task the task ID
  * @returns {string} the constructed endpoint URL
  */
-const disinviteEndpoint = (course_id, task) => {
-    return `/course/${course_id}/group/disinvite?task=${task}`;
+const disinviteEndpoint = (course_id) => {
+    return `/course/${course_id}/group/disinvite`;
 };
 
 describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
@@ -31,7 +30,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
 
     it('should disinvite a student successfully', (done) => {
         chai.request(BASE_API_URL)
-            .delete(disinviteEndpoint(1, 1))
+            .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
             .send({ username: "cscstudentuser2", task: "Task1" }) // Disinviting student with username 'cscstudentuser2'
             .end((err, res) => {
@@ -43,7 +42,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
 
     it('should return an error if the student is not invited', (done) => {
         chai.request(BASE_API_URL)
-            .delete(disinviteEndpoint(1, 1))
+            .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
             .send({ username: "studentnogroup" }) // Trying to disinvite student with username 'studentnogroup'
             .end((err, res) => {
@@ -55,7 +54,7 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
 
     it('should return an error if the invitation does not exist', (done) => {
         chai.request(BASE_API_URL)
-            .delete(disinviteEndpoint(1, 1))
+            .delete(disinviteEndpoint(1))
             .set('Authorization', cscStudentToken)
             .send({ username: "studentnogroup", task: "Task1"  }) // Trying to disinvite student with username 'studentnogroup'
             .end((err, res) => {
@@ -66,7 +65,5 @@ describe('[group/disinvite module]: DELETE disinvite endpoint', () => {
     });
 
     after(async () => {
-        // Clean up the database after tests
-        // await sequelize.sync({ force: true });
     });
 });

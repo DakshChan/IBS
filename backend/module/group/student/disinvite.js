@@ -27,7 +27,6 @@ router.delete("/", async (req, res) => {
 			attributes: ['task_id', 'username', 'group_id', 'status']
 		});
 
-		console.log(username, groupUser.status)
 		if (!groupUser || groupUser.status !== 'confirmed') {
 			return res.status(403).json({ message: "You don't have access to cancel the invitation." });
 		}

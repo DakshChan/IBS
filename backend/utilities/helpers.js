@@ -9,6 +9,8 @@ const db = require('../setup/db');
 
 const JWT_EXPIRY = '120m';
 
+const { Group } = require('../models');
+
 function generateAccessToken(username, email, admin, roles) {
     return jwt.sign(
         { username: username, email: email, admin: admin, roles: roles },
