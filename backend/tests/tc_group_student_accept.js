@@ -27,7 +27,6 @@ describe('Accept Group Invitation Endpoint', () => {
             .set('Authorization', cscStudent2Token)
             .send({ task: 'Task1' })
             .end((err, res) => {
-                console.log(res.body);
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'User has been added to the group.');
                 expect(res.body).to.have.property('group_id');
@@ -36,10 +35,10 @@ describe('Accept Group Invitation Endpoint', () => {
             });
     });
 
-    it('should return error when task is missing', (done) => {
+    it('should return an error if no task is provided', (done) => {
         chai.request(BASE_API_URL)
-            .put(acceptGroupInviteEndpoint)
-            .set('Authorization', cscStudentToken)
+            .put(acceptGroupInviteEndpoint(1))
+            .set('Authorization', cscStudent2Token)
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
@@ -47,5 +46,16 @@ describe('Accept Group Invitation Endpoint', () => {
             });
     });
 
-    // Add more test cases as needed
+    it('should return an error if no invitation exists for the provided task and user', (done) => {
+        chai.request(BASE_API_URL)
+            .put(acceptGroupInviteEndpoint(1))
+            .set('Authorization', cscStudent2Token)
+            .send({ task: 'Task1' }) // Assuming no invitation exists for Task1
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                expect(res.body).to.have.property('message', "Invitation doesn't exist.");
+                done();
+            });
+    });
+
 });
