@@ -9,16 +9,19 @@ class GroupUser extends Model {
    */
   static associate(models) {
     GroupUser.belongsTo(models.Group, {
+      foreignKey: "group_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT',
     });
 
     GroupUser.belongsTo(models.Task, {
+      foreignKey: "task_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     });
 
     GroupUser.belongsTo(models.User, {
+      foreignKey: "username",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     })
@@ -45,8 +48,8 @@ GroupUser.init({
 }, {
   sequelize,
   modelName: 'GroupUser',
-  timestamps: false,
-  tableName: 'group_user'
+  tableName: 'group_user',
+  timestamps: false
 });
 
 module.exports = GroupUser;

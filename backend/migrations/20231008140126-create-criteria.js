@@ -13,9 +13,17 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: false,
       },
+      task_name: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
       total: {
         type: Sequelize.NUMERIC,
         allowNull: false,
+      },
+      description: {
+        type: Sequelize.TEXT,
+        allowNull: true,
       },
       createdAt: {
         allowNull: false,

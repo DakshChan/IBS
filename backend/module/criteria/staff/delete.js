@@ -1,36 +1,44 @@
 const express = require("express");
 const router = express.Router();
 const client = require("../../../setup/db");
+const { Criteria, Mark } = require("../../../models");
 const helpers = require("../../../utilities/helpers");
 
-router.delete("/", (req, res) => {
-    if (!("criteria_id" in req.body) || helpers.number_validate(req.body["criteria_id"])) {
-        res.status(400).json({ message: "The criteria id is missing or has invalid format." });
-        return;
-    }
+router.delete("/", async (req, res) => {
+    try {
+        const {criteria_id} = req.body;
 
-    let sql_delete_marks = "DELETE FROM course_" + res.locals["course_id"] + ".mark WHERE criteria_id = ($1)";
-    let sql_delete_criteria = "DELETE FROM course_" + res.locals["course_id"] + ".criteria WHERE criteria_id = ($1)";
-
-    client.query(sql_delete_marks, [req.body["criteria_id"]], (err, pg_res) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-            console.log(err);
-        } else {
-            client.query(sql_delete_criteria, [req.body["criteria_id"]], (err, pg_res) => {
-                if (err) {
-                    res.status(404).json({ message: "Unknown error." });
-                    console.log(err);
-                } else {
-                    if (pg_res.rowCount === 0) {
-                        res.status(400).json({ message: "The criteria id is invalid." });
-                    } else {
-                        res.status(200).json({ message: "The criteria is deleted." });
-                    }
-                }
-            });
+        // Check if the criteria id is missing or has invalid format
+        if (!criteria_id || helpers.number_validate(criteria_id)) {
+            return res.status(400).json({message: "The criteria id is missing or has invalid format."});
         }
-    });
+
+        // Check if the criteria exists
+        const criteria = await Criteria.findByPk(criteria_id);
+
+        if (!criteria) {
+            return res.status(400).json({message: "The criteria id is invalid."});
+        }
+
+        // Delete associated marks first
+        await Mark.destroy({
+            where: {
+                criteria_id: criteria_id
+            }
+        });
+
+        // Delete the criteria using Sequelize
+        await Criteria.destroy({
+            where: {
+                id: criteria_id
+            }
+        });
+
+        return res.status(200).json({message: "The criteria is deleted."});
+    } catch (error) {
+        console.error(error);
+        return res.status(404).json({message: "Unknown error.", error: error.message});
+    }
 })
 
 module.exports = router;

@@ -6,10 +6,22 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
+const { Task } = require("../models");
+
+const { VersionControlSystem } = require("../lib/version_control");
 
 const JWT_EXPIRY = '120m';
 
 const { Group } = require('../models');
+
+// A few helper functions used the old gitlab helpers
+const gitlab_get_user_id = VersionControlSystem.get_user_id;
+const gitlab_create_group_and_project_no_user = VersionControlSystem.create_group_and_project_no_user;
+const gitlab_create_group_and_project_with_user = VersionControlSystem.create_group_and_project_with_user;
+const gitlab_add_user_with_gitlab_group_id = VersionControlSystem.add_user_with_group_id;
+const gitlab_add_user_without_gitlab_group_id = VersionControlSystem.add_user_to_new_group;
+const gitlab_remove_user = VersionControlSystem.remove_user_from_group;
+const gitlab_get_commits = VersionControlSystem.get_commits;
 
 function generateAccessToken(username, email, admin, roles) {
     return jwt.sign(
@@ -45,14 +57,21 @@ function string_validate(string) {
  * @returns {Promise<number>}
  */
 async function weight_validate(new_task_weight, course_id) {
-    let pg_res_task = await db.query(
-        'SELECT sum(weight) AS total_weight FROM course_' + course_id + '.task'
-    );
-    let total_weight = pg_res_task.rows[0].total_weight || 0;
-    if (typeof total_weight === 'string') {
-        total_weight = parseInt(total_weight);
+    try {
+        // Find the sum of weights of all tasks for the given course_id
+        const totalWeight = await Task.sum('weight', {
+            where: { course_id }
+        });
+
+        // Calculate the total weight including the new task's weight
+        const updatedTotalWeight = totalWeight + new_task_weight;
+
+        // Check if the updated total weight exceeds 100
+        return updatedTotalWeight > 100 ? 1 : 0;
+    } catch (error) {
+        console.error("Error validating task weight:", error);
+        return 1; // Return 1 indicating an error condition
     }
-    return total_weight + new_task_weight > 100 ? 1 : 0;
 }
 
 /**
@@ -129,28 +148,35 @@ function password_validate(password) {
 }
 
 async function task_validate(course_id, task, student) {
-    if (student) {
-        var pg_res = await db.query(
-            "SELECT * FROM tasks WHERE task = ($1) AND hidden = 'false'",
-            [task]
-        );
-    } else {
-        var pg_res = await db.query(
-            'SELECT * FROM tasks WHERE task = ($1)',
-            [task]
-        );
-    }
 
-    if (pg_res.rowCount <= 0) {
+    try {
+        let whereCondition = { task, course_id };
+        if (student) {
+            whereCondition.hidden = false;
+        }
+
+        // Find the task based on the conditions
+        const taskDetails = await Task.findOne({
+            where: whereCondition,
+            raw: true // Fetch raw data without model instances
+        });
+
+        if (!taskDetails) {
+            return { task: '' };
+        } else {
+            // Extract required fields from the taskDetails object
+            const { change_group, hide_interview, hide_file, interview_group } = taskDetails;
+            return {
+                task,
+                change_group,
+                hide_interview,
+                hide_file,
+                interview_group
+            };
+        }
+    } catch (error) {
+        console.error("Error validating task:", error);
         return { task: '' };
-    } else {
-        return {
-            task: task,
-            change_group: pg_res.rows[0]['change_group'],
-            hide_interview: pg_res.rows[0]['hide_interview'],
-            hide_file: pg_res.rows[0]['hide_file'],
-            interview_group: pg_res.rows[0]['interview_group']
-        };
     }
 }
 
@@ -759,332 +785,6 @@ async function format_marks_all_tasks_csv(json, course_id, res, total) {
     });
 }
 
-async function gitlab_get_user_id(username) {
-    try {
-        let config_get_user_id = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN
-            }
-        };
-
-        let res = await axios.get(
-            process.env.GITLAB_URL + 'users?username=' + username,
-            config_get_user_id
-        );
-        if (res['data'].length <= 0) {
-            return -1;
-        }
-        return res['data'][0]['id'];
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return -1;
-    }
-}
-
-async function gitlab_create_group_and_project_no_user(course_id, group_id, task) {
-    // Get the gitlab group id
-    let pg_res_gitlab_course_group_id = await db.query(
-        'SELECT gitlab_group_id FROM course WHERE course_id = ($1)',
-        [course_id]
-    );
-    if (pg_res_gitlab_course_group_id.rowCount !== 1) {
-        return { success: false, code: 'invalid_gitlab_group' };
-    }
-
-    // Get the starter code url
-    let pg_res_starter_code_url = await db.query(
-        'SELECT starter_code_url FROM course_' + course_id + '.task WHERE task = ($1)',
-        [task]
-    );
-    let starter_code_url = null;
-    if (
-        pg_res_starter_code_url.rowCount === 1 &&
-        pg_res_starter_code_url.rows[0]['starter_code_url'] !== null &&
-        pg_res_starter_code_url.rows[0]['starter_code_url'] !== ''
-    ) {
-        starter_code_url = pg_res_starter_code_url.rows[0]['starter_code_url'];
-    }
-
-    try {
-        // Create a new subgroup in the course group
-        let group_name = 'group_' + group_id;
-        let config = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN,
-                'Content-Type': 'application/json'
-            }
-        };
-
-        let data_create_group = {
-            path: group_name,
-            name: group_name,
-            parent_id: pg_res_gitlab_course_group_id.rows[0]['gitlab_group_id']
-        };
-        let res_create_group = await axios.post(
-            process.env.GITLAB_URL + 'groups/',
-            data_create_group,
-            config
-        );
-        var gitlab_subgroup_id = res_create_group['data']['id'];
-
-        // Create a new project in the subgroup
-        if (starter_code_url !== null) {
-            var data_create_project = {
-                path: task,
-                namespace_id: gitlab_subgroup_id,
-                import_url: starter_code_url
-            };
-        } else {
-            var data_create_project = {
-                path: task,
-                namespace_id: gitlab_subgroup_id,
-                initialize_with_readme: true
-            };
-        }
-        let res_create_project = await axios.post(
-            process.env.GITLAB_URL + 'projects/',
-            data_create_project,
-            config
-        );
-        var gitlab_url = res_create_project['data']['web_url'];
-        var gitlab_project_id = res_create_project['data']['id'];
-
-        // Wait for Gitlab to initialize
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        let delete_config = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN,
-                'Content-Type': 'application/json'
-            },
-            data: {}
-        };
-
-        // Delete the protected branch
-        await axios.delete(
-            process.env.GITLAB_URL + 'projects/' + gitlab_project_id + '/protected_branches/master',
-            delete_config
-        );
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return { success: false, code: 'failed_create_project' };
-    }
-
-    // Store the Gitlab info in the db
-    let sql_add_gitlab_info =
-        'UPDATE course_' +
-        course_id +
-        '.group SET gitlab_group_id = ($1), gitlab_project_id = ($2), gitlab_url = ($3) WHERE group_id = ($4)';
-    await db.query(sql_add_gitlab_info, [
-        gitlab_subgroup_id,
-        gitlab_project_id,
-        gitlab_url,
-        group_id
-    ]);
-
-    return {
-        success: true,
-        gitlab_group_id: gitlab_subgroup_id,
-        gitlab_project_id: gitlab_project_id,
-        gitlab_url: gitlab_url
-    };
-}
-
-async function gitlab_create_group_and_project_with_user(course_id, group_id, username, task) {
-    let add_project = await gitlab_create_group_and_project_no_user(course_id, group_id, task);
-    if (add_project['success'] === false) {
-        return add_project;
-    }
-
-    // Add the user to the subgroup
-    return await gitlab_add_user_with_gitlab_group_id(
-        add_project['gitlab_group_id'],
-        add_project['gitlab_url'],
-        username
-    );
-}
-
-async function gitlab_add_user_with_gitlab_group_id(gitlab_group_id, gitlab_url, username) {
-    let user_id = await gitlab_get_user_id(username);
-    if (user_id === -1) {
-        return { success: false, code: 'gitlab_invalid_username' };
-    }
-
-    try {
-        let data_add_user = {
-            id: gitlab_group_id,
-            user_id: user_id,
-            access_level: 30 // Developer
-        };
-        let config_add_user = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN,
-                'Content-Type': 'application/json'
-            }
-        };
-
-        await axios.post(
-            process.env.GITLAB_URL + 'groups/' + gitlab_group_id + '/members',
-            data_add_user,
-            config_add_user
-        );
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return { success: false, code: 'failed_add_user' };
-    }
-
-    return { success: true, gitlab_url: gitlab_url };
-}
-
-async function gitlab_add_user_without_gitlab_group_id(course_id, group_id, username) {
-    let pg_res = await db.query(
-        'SELECT gitlab_group_id, gitlab_url FROM course_' +
-            course_id +
-            '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res.rowCount !== 1) {
-        return { success: false, code: 'group_not_exist' };
-    }
-    let data = pg_res.rows[0];
-    if (
-        data['gitlab_group_id'] === null ||
-        data['gitlab_url'] === null ||
-        data['gitlab_group_id'] === '' ||
-        data['gitlab_url'] === ''
-    ) {
-        return { success: false, code: 'group_not_exist' };
-    }
-    return await gitlab_add_user_with_gitlab_group_id(
-        data['gitlab_group_id'],
-        data['gitlab_url'],
-        username
-    );
-}
-
-async function gitlab_remove_user(course_id, group_id, username) {
-    // Get gitlab_group_id
-    let pg_res = await db.query(
-        'SELECT gitlab_group_id FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res.rowCount !== 1) {
-        return { success: false, code: 'group_not_exist' };
-    }
-    let data = pg_res.rows[0];
-    if (data['gitlab_group_id'] === null || data['gitlab_group_id'] === '') {
-        return { success: false, code: 'group_not_exist' };
-    }
-    let gitlab_group_id = data['gitlab_group_id'];
-
-    // Get user_id
-    let user_id = await gitlab_get_user_id(username);
-    if (user_id === -1) {
-        return { success: false, code: 'gitlab_invalid_username' };
-    }
-
-    // Remove the user
-    try {
-        let config = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN,
-                'Content-Type': 'application/json'
-            },
-            data: {
-                id: gitlab_group_id,
-                user_id: user_id
-            }
-        };
-
-        await axios.delete(
-            process.env.GITLAB_URL + 'groups/' + gitlab_group_id + '/members/' + user_id,
-            config
-        );
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return { success: false, code: 'failed_remove_user' };
-    }
-
-    return { success: true };
-}
-
-async function gitlab_get_commits(course_id, group_id) {
-    // Get gitlab_project_id
-    let pg_res = await db.query(
-        'SELECT gitlab_project_id FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res.rowCount !== 1) {
-        return [];
-    }
-    let data = pg_res.rows[0];
-    if (data['gitlab_project_id'] === null || data['gitlab_project_id'] === '') {
-        return [];
-    }
-    let gitlab_project_id = data['gitlab_project_id'];
-
-    try {
-        let config = {
-            headers: {
-                Authorization: 'Bearer ' + process.env.GITLAB_TOKEN
-            }
-        };
-
-        let res_commit = await axios.get(
-            process.env.GITLAB_URL + 'projects/' + gitlab_project_id + '/repository/commits',
-            config
-        );
-        let res_push = await axios.get(
-            process.env.GITLAB_URL + 'projects/' + gitlab_project_id + '/events',
-            config
-        );
-        return { commit: res_commit['data'], push: res_push['data'] };
-    } catch (err) {
-        if (
-            'response' in err &&
-            'data' in err['response'] &&
-            'message' in err['response']['data']
-        ) {
-            console.log(err['response']['data']['message']);
-        } else {
-            console.log(err);
-        }
-        return { commit: [], push: [] };
-    }
-}
-
 async function get_max_user_tokens(course_id, username) {
     let pg_res_default_tokens = await db.query(
         'SELECT default_token_count, token_length FROM course WHERE course_id = ($1)',
@@ -1642,5 +1342,5 @@ module.exports = {
     gitlab_add_user_with_gitlab_group_id,
     gitlab_add_user_without_gitlab_group_id,
     gitlab_remove_user,
-    gitlab_get_commits
+    gitlab_get_commits,
 };

@@ -19,6 +19,13 @@ User.init({
     primaryKey: true,
     unique: true,
   },
+  user_id: {
+    primaryKey: false,
+    unique: true,
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    allowNull: false
+  },
   password: {
     type: DataTypes.STRING,
     allowNull: false

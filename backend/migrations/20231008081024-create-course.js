@@ -60,6 +60,6 @@ module.exports = {
   async down(queryInterface, Sequelize) {
     await queryInterface.dropAllTables();
     // Remove the foreign key constraint
-    await queryInterface.removeConstraint('courses', 'custom_fkey_course_id');
+    // await queryInterface.removeConstraint('courses', 'custom_fkey_course_id');
   }
 };
