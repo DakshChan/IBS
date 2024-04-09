@@ -3,8 +3,6 @@ const chaiHttp = require('chai-http');
 const app = require("../app");
 const { getAuthBearerToken } = require("./utils/helpers");
 const { BASE_API_URL } = require("./utils/constants");
-const {DataTypes} = require("sequelize");
-const os = require("os"); // Adjust the path as per your project structure
 const expect = chai.expect;
 
 chai.use(chaiHttp);
