@@ -5,10 +5,6 @@ const path = require('path');
 const TEST_DIRECTORY = './tests'
 const EXEC_SYNC_OPTS = {};
 
-// console.log(`Running test case ${testCaseName}`);
-// console.log(`testFilePath: ${testFilePath}`);
-// console.log(`seederFilePath: ${seederFilePath}`);
-
 function runTestByName(testCaseName) {
     const testFilePath = `tests/tc_${testCaseName}.js`;
     const seederFilePath = `seeders/sd_${testCaseName}.js`;
