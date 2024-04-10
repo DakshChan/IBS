@@ -17,7 +17,7 @@ const retrieveFileEndpoint = (course_id) => {
     return `/course/${course_id}/file/retrieve`;
 };
 
-describe('[file/student module]: GET all files endpoint', () => {
+describe('[file/student module]: GET retrieve file endpoint', () => {
     let instructorToken, studentDomiToken, studentAndrewToken;
     before(async () => {
         instructorToken = await getAuthBearerToken('instructor', 'password');
