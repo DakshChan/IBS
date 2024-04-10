@@ -3,8 +3,6 @@ const sequelize = require('../helpers/database'); // Adjust the path as per your
 
 class CourseRole extends Model {
   static associate(models) {
-    console.log("=========== Association for courserole is called here ===========");
-
     CourseRole.belongsTo(models.Course, {
       foreignKey: 'course_id',
       onDelete: 'RESTRICT',

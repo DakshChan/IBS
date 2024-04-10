@@ -6,7 +6,6 @@ const helpers = require("../../../utilities/helpers");
 
 router.put("/", async (req, res) => {
     try {
-        console.log("in change.hs");
         // Validation checks
         if (!("criteria_id" in req.body) || helpers.number_validate(req.body["criteria_id"])) {
             return res.status(400).json({ message: "The criteria id is missing or has invalid format." });
