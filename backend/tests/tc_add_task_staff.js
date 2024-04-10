@@ -64,7 +64,6 @@ describe('Add Task as Admin', () => {
                 starter_code_url: "https://testuser.com"
             })
             .end((err, res) => {
-                console.log(res.body["message"]);
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The starter code url is invalid. It should start with https:// and end with .git');
                 done();
@@ -91,7 +90,6 @@ describe('Add Task as Admin', () => {
                 starter_code_url: "https://testuser.com"
             })
             .end((err, res) => {
-                console.log(res.body["message"]);
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
                 done();
