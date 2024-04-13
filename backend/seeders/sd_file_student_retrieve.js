@@ -132,7 +132,7 @@ module.exports = {
             fs.rmSync(file_dir, { recursive: true, force: true });
         }
 
-        fs.cpSync(`${__dirname}/../tests/test-media/file/student/PS1`, `${__dirname}/../files/course_1/PS1`, { recursive: true });
+        fs.cpSync(`${__dirname}/../tests/test-data/file/student/PS1`, `${__dirname}/../files/course_1/PS1`, { recursive: true });
     },
 
     async down(queryInterface, Sequelize) {
