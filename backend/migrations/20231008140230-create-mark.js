@@ -21,7 +21,6 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: false,
       },
-
       mark: {
         type: Sequelize.NUMERIC,
         allowNull: false,

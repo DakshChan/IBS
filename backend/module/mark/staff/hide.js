@@ -1,27 +1,29 @@
 const express = require("express");
 const router = express.Router();
 const client = require("../../../setup/db");
+const { Mark } = require("../../../models");
+const helpers = require("../../../utilities/helpers");
 
-router.put("/", (req, res) => {
-    if (res.locals["task"] === "") {
-        res.status(400).json({ message: "The task is missing or invalid." });
-        return;
+router.put("/", async (req, res) => {
+
+    const { task } = req.body;
+
+    if (!task) {
+        return res.status(400).json({ message: "The task is missing or invalid." });
     }
 
-    let sql_release = "UPDATE course_" + res.locals["course_id"] + ".mark SET hidden = true WHERE task = ($1)";
+    try {
+        const [rowCount, _] = await Mark.update(
+            { hidden: true },
+            { where: { task_name: task } }
+        );
 
-    client.query(sql_release, [res.locals["task"]], (err, pgRes) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-            console.log(err);
-        } else {
-            if (pgRes.rowCount <= 1) {
-                res.status(200).json({ message: pgRes.rowCount + " mark is hidden.", count: pgRes.rowCount });
-            } else {
-                res.status(200).json({ message: pgRes.rowCount + " marks are hidden.", count: pgRes.rowCount });
-            }
-        }
-    });
-})
+        const message = rowCount <= 1 ? "1 mark is hidden." : `${rowCount} marks are hidden.`;
+        res.status(200).json({ message, count: rowCount });
+    } catch (error) {
+        console.error(error);
+        res.status(404).json({ message: "Unknown error." });
+    }
+});
 
 module.exports = router;

@@ -665,6 +665,9 @@ async function format_marks_all_tasks(json, course_id) {
 
         if (!(username in marks)) {
             marks[username] = {};
+        }
+
+        if (!(task in marks[username])) {
             const task_weight = await get_task_weight(course_id, task);
             marks[username][task] = {
                 mark: 0,

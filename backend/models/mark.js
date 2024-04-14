@@ -5,7 +5,7 @@ class Mark extends Model {
   static associate(models) {
     Mark.belongsTo(models.Criteria, { foreignKey: 'criteria_id', as: 'criteria' });
     Mark.belongsTo(models.User, { foreignKey: 'username', as: 'user' });
-    Mark.belongsTo(models.Task, { foreignKey: 'task_name', as: 'task' });
+    Mark.belongsTo(models.Task, { foreignKey: 'task_name', targetKey: 'task', as: 'task' });
   }
 }
 
