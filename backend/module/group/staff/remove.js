@@ -2,43 +2,53 @@ const express = require("express");
 const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
+const { Group, GroupUser } = require("../../../models");
 
-router.delete("/", (req, res) => {
-    if (!("group_id" in req.body) || helpers.number_validate(req.body["group_id"])) {
-        res.status(400).json({ message: "The group id is missing or invalid." });
-        return;
-    }
-    if (!("username" in req.body) || helpers.name_validate(req.body["username"])) {
-        res.status(400).json({ message: "The username is missing or has invalid format." });
-        return;
+
+router.delete("/", async (req, res) => {
+    if (!req.body.group_id || helpers.number_validate(req.body["group_id"])) {
+        return res.status(400).json({ message: "The group id is missing or invalid." });
     }
 
-    let sql_remove = "DELETE FROM course_" + res.locals["course_id"] + ".group_user WHERE username = ($1) AND group_id = ($2)";
-    let sql_select = "SELECT * FROM course_" + res.locals["course_id"] + ".group_user WHERE group_id = ($1)";
-    let sql_delete = "DELETE FROM course_" + res.locals["course_id"] + ".group WHERE group_id = ($1)";
+    if (!req.body.username || helpers.name_validate(req.body["username"])) {
+        return res.status(400).json({ message: "The username is missing or has invalid format." });
+    }
 
-    client.query(sql_remove, [req.body["username"].toLowerCase(), req.body["group_id"]], (err, pg_res_remove) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-            console.log(err);
-        } else {
-            if (pg_res_remove.rowCount === 1) {
-                helpers.gitlab_remove_user(res.locals["course_id"], req.body["group_id"], req.body["username"].toLowerCase());
-                res.status(200).json({ message: "The student is removed from the group." });
-            } else {
-                res.status(400).json({ message: "The student was not in the group." });
-            }
+    // Checking if group id is valid
+    const group = await Group.findOne({
+        where: {
+            group_id: req.body.group_id
+        }
+    })
 
-            // Delete the entire group if the last member is removed
-            // client.query(sql_select, [req.body["group_id"]], (err, pg_res_select) => {
-            // 	if (err) {
-            // 		console.log(err);
-            // 	} else if (pg_res_select.rowCount === 0) {
-            // 		client.query(sql_delete, [req.body["group_id"]]);
-            // 	}
-            // });
+    if (!group) return res.status(400).json({ message: 'Group does not exist in the database' });
+
+    // Checking if the student is in the group
+    const group_user = await GroupUser.findOne({
+        where: {
+            username: req.body.username,
+            group_id: group.group_id
         }
     });
+
+    if (!group_user) return res.status(400).json({ message: "The student was not in the group." });
+
+    // Removing the student from the group
+    await group_user.destroy();
+
+    await helpers.gitlab_remove_user(res.locals["course_id"], req.body["group_id"], req.body["username"].toLowerCase());
+    res.status(200).json({ message: "The student is removed from the group." });
+
+    // Removing the entire group if there are no more members in it.
+    const group_members = await GroupUser.findAll({
+        where: {
+            group_id: group.group_id
+        }
+    })
+
+    if (group_members.length === 0) {
+        await group.destroy();
+    }
 })
 
 module.exports = router;
