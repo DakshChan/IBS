@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const { QueryTypes } = require('sequelize');
 const { GroupUser, Task} = require('../../../models');
 const { gitlab_add_user_without_gitlab_group_id } = require('../../../utilities/helpers');
 
