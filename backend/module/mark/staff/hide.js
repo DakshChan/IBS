@@ -5,7 +5,6 @@ const { Mark } = require("../../../models");
 const helpers = require("../../../utilities/helpers");
 
 router.put("/", async (req, res) => {
-
     const { task } = req.body;
 
     if (!task) {
