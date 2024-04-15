@@ -25,10 +25,15 @@ router.post("/", async (req, res) => {
 		}
 
 		// Create a new group using the found task ID
-		const newGroup = await Group.create({ task_id: taskInstance.id });
+		let newGroup;
 
-		// Associate the current user with the created group
-		try{
+		try {
+			newGroup = await Group.create({ task_id: taskInstance.id });
+		} catch (error) {
+			return res.status(400).json({ message: "The task is not found in the database." });
+		}
+
+		try {
 			await GroupUser.create({
 				task_id: taskInstance.id,
 				username,
