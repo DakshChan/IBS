@@ -17,7 +17,7 @@ router.get("/", async(req, res) => {
             const tasks = await Task.findAll({
                 where: { course_id: courseId },
                 attributes: ['task']
-            })
+            });
 
             const taskNames = tasks.map(task => task.task);
             const marksData = await Mark.findAll({
@@ -36,50 +36,18 @@ router.get("/", async(req, res) => {
         } else {
             // Retrieve marks for a specific task
             marksData = await Mark.findAll({
-                where: {task_name: task, hidden: false},
+                where: {task_name: task},
                 order: [["username"]],
             });
 
             marks = await helpers.format_marks_one_task(marksData, courseId, task, true);
         }
 
-
         res.status(200).json({marks});
     } catch (error) {
         console.error(error);
         res.status(404).json({message: "Unknown error."});
     }
-
-
-    // if (req.query["total"] === true || req.query["total"] === "true") {
-    //     var total = true;
-    // } else {
-    //     var total = false;
-    // }
-
-    // if (res.locals["task"] === "") {
-    //     let sql_mark = "SELECT username, task, SUM(mark) AS sum FROM course_" + res.locals["course_id"] + ".mark GROUP BY username, task ORDER BY username";
-    //     client.query(sql_mark, [], (err, pgRes) => {
-    //         if (err) {
-    //             res.status(404).json({ message: "Unknown error." });
-    //         } else {
-    //             helpers.format_marks_all_tasks(pgRes.rows, res.locals["course_id"], total).then(marks => {
-    //                 res.json({ marks: marks });
-    //             });
-    //         }
-    //     });
-    // } else {
-    //     let sql_mark = "SELECT * FROM course_" + res.locals["course_id"] + ".mark WHERE task = ($1) ORDER BY username";
-    //     client.query(sql_mark, [res.locals["task"]], (err, pgRes) => {
-    //         if (err) {
-    //             res.status(404).json({ message: "Unknown error." });
-    //         } else {
-    //             helpers.format_marks_one_task(pgRes.rows, res.locals["course_id"], res.locals["task"], total).then(marks => {
-    //                 res.json({ marks: marks });
-    //             });
-    //         }
-    //     });
-    // }
 })
 
 module.exports = router;
