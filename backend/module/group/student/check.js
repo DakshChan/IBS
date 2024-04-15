@@ -1,15 +1,22 @@
 const express = require("express");
 const router = express.Router();
-const { GroupUser, Group } = require("../../../models");
+const { GroupUser, Group, Task } = require("../../../models");
 
 router.get("/", async (req, res) => {
 	try {
+		if (req.body["task"] === "") {
+			res.status(400).json({ message: "The task is missing or invalid." });
+			return;
+		}
+		const task_name = req.body["task"];
+		const { username, course_id } = res.locals;
 
-		const { username } = res.locals;
-
+		const taskModel = await Task.findOne({
+			where: { task:task_name, course_id }
+		})
 		// Find the GroupUser record for the given username and task
 		const groupUser = await GroupUser.findOne({
-			where: { username },
+			where: { username, task_id: taskModel.id },
 			attributes: ['task_id', 'username', 'group_id', 'status']
 		});
 
@@ -20,7 +27,6 @@ router.get("/", async (req, res) => {
 		}
 
 		const group_id = groupUser.dataValues.group_id;
-		const status = groupUser.dataValues.status;
 
 		// Find members of the group
 		const members = await GroupUser.findAll({
