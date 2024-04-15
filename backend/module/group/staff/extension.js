@@ -27,7 +27,7 @@ router.put("/", async (req, res) => {
 
 	let subject = "IBS Extension Confirmation";
 	let body = "Your extension request for " + pg_res_update.rows[0]["task"] + " has been approved. The due date is extended by " + req.body["extension"] + " minutes. Please check IBS for details.";
-	helpers.send_email_by_group(res.locals["course_id"], req.body["group_id"], subject, body);
+	await helpers.send_email_by_group(res.locals["course_id"], req.body["group_id"], subject, body);
 })
 
 module.exports = router;
