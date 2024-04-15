@@ -28,12 +28,18 @@ router.post("/", async (req, res) => {
 		const newGroup = await Group.create({ task_id: taskInstance.id });
 
 		// Associate the current user with the created group
-		await GroupUser.create({
-			task_id: taskInstance.id,
-			username,
-			group_id: newGroup.group_id,
-			status: 'confirmed'
-		});
+		try{
+			await GroupUser.create({
+				task_id: taskInstance.id,
+				username,
+				group_id: newGroup.group_id,
+				status: 'confirmed'
+			});
+		} catch (error) {
+			return res.status(409).json({ message: "You can join at most one group for each task." });
+		}
+
+
 
 		// Call the helper function to create a GitLab group and project
 		const result = await helpers.gitlab_create_group_and_project_with_user(course_id, newGroup.group_id, username, task);
