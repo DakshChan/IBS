@@ -43,7 +43,6 @@ describe('[criteria/staff module]: DELETE criteria endpoint', () => {
             .set('Authorization', cscInstructorToken)
             .send(payload_list[0])
             .end((err, res) => {
-                console.log(res.body.error);
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'The criteria is deleted.');
                 done();
@@ -56,7 +55,6 @@ describe('[criteria/staff module]: DELETE criteria endpoint', () => {
             .set('Authorization', cscInstructorToken)
             .send(payload_list[2])
             .end((err, res) => {
-                console.log(res.body.error);
                 expect(res).to.have.status(200);
                 expect(res.body).to.have.property('message', 'The criteria is deleted.');
                 done();
