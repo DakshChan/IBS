@@ -1,7 +1,7 @@
 // routes/group/disinvite.js
 const express = require("express");
 const router = express.Router();
-const { GroupUser, Group } = require('../../../models');
+const { GroupUser, Task } = require('../../../models');
 const helpers = require("../../../utilities/helpers");
 
 router.delete("/", async (req, res) => {
@@ -18,14 +18,33 @@ router.delete("/", async (req, res) => {
 			return res.status(400).json({ message: "The username is missing or has an invalid format." });
 		}
 
-		const { username } = res.locals;
-		const { task } = res.locals.task;
+
+		const { course_id, username, task } = res.locals;
+
+		// find corresponding Task model
+		let task_model;
+		try {
+			task_model = await Task.findOne({
+				where: {course_id, task}
+			})
+		} catch (exception){
+			return res.status(404).json({  message: "Unknown error."  });
+		}
+
+		if (!task_model) {
+			return res.status(400).json({ message: "Invitation doesn't exist." });
+		}
 
 		// Check if the user has access to cancel the invitation
-		const groupUser = await GroupUser.findOne({
-			where: { username: username },
-			attributes: ['task_id', 'username', 'group_id', 'status']
-		});
+		let groupUser;
+		try {
+			groupUser = await GroupUser.findOne({
+				where: {username: username, task_id: task_model.id},
+				attributes: ['task_id', 'username', 'group_id', 'status']
+			});
+		} catch (exception) {
+			return res.status(404).json({  message: "Unknown error."  });
+		}
 
 		if (!groupUser || groupUser.status !== 'confirmed') {
 			return res.status(403).json({ message: "You don't have access to cancel the invitation." });
