@@ -6,10 +6,12 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task, GroupUser, Group, User } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
-const {GROUP_STATUS} = require("../helpers/constants");
+const { GROUP_STATUS } = require("../helpers/constants");
+
+const { Task, GroupUser, Group, User } = require("../models");
+
 
 const JWT_EXPIRY = '120m';
 
@@ -333,8 +335,22 @@ async function send_email_by_group(course_id, group_id, subject, body) {
     await send_email(group_emails, subject, body);
 }
 
-function search_files(username, group_id, coure_id, sub_dir = '') {
-    let dir = __dirname + '/../files/course_' + coure_id + '/' + sub_dir;
+/**
+ * CAUTION: Recursive function
+ *
+ * Searches for all files associated with a group or a user in a specific course.
+ * Preconditions:
+ *      - a file is related to a group if it filename includes the substring 'group_{group_id}_'
+ *      - a file is related to a username if its filename includes the substring '{username}_'
+ *
+ * @param username the username of a person in the course
+ * @param group_id the id of a group for a specific task
+ * @param course_id the id of the course
+ * @param sub_dir recursion parameter
+ * @returns {*[]} a list of associated filenames
+ */
+function search_files(username, group_id, course_id, sub_dir = '') {
+    let dir = __dirname + '/../files/course_' + course_id + '/' + sub_dir;
     let result = [];
 
     if (!fs.existsSync(dir)) {
@@ -349,7 +365,7 @@ function search_files(username, group_id, coure_id, sub_dir = '') {
 
         if (stat.isDirectory()) {
             result = result.concat(
-                search_files(username, group_id, coure_id, sub_dir + files[i] + '/')
+                search_files(username, group_id, course_id, sub_dir + files[i] + '/')
             );
         } else if (
             file_name.indexOf(username + '_') >= 0 ||
@@ -459,18 +475,24 @@ async function get_group_task(course_id, group_id) {
 }
 
 async function get_group_id(course_id, task, username) {
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND username= ($2) AND status = 'confirmed'",
-        [task, username]
-    );
+    const task_item = await Task.findOne({
+        where: {
+            course_id,
+            task
+        }
+    });
 
-    if (pg_res.rowCount == 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['group_id'];
-    }
+    const users_group = await GroupUser.findOne({
+        where: {
+            task_id: task_item.id,
+            status: GROUP_STATUS.confirmed,
+            username
+        }
+    })
+
+    if (!users_group) return -1;
+
+    return users_group.group_id;
 }
 
 async function get_group_users(course_id, group_id) {
