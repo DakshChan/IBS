@@ -1,7 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const client = require("../../../setup/db");
-const helpers = require("../../../utilities/helpers");
 const { Task, Group, GroupUser } = require("../../../models")
 
 router.get("/", async (req, res) => {
