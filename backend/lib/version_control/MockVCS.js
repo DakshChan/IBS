@@ -36,7 +36,7 @@ class MockVCS extends AbstractVCS {
             return { success: false, code: 'gitlab_invalid_username' };
         }
 
-        return { success: true, url: vcs_url };
+        return { success: true, gitlab_url: vcs_url };
 
     }
 

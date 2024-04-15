@@ -44,7 +44,7 @@ router.put("/", async (req, res) => {
 		const gitlabResult = await gitlab_add_user_without_gitlab_group_id(course_id, group_id, username);
 
 		if (gitlabResult.success) {
-			return res.status(200).json({ message: "User has been added to the group.", group_id, gitlab_url: gitlabResult.url });
+			return res.status(200).json({ message: "User has been added to the group.", group_id, gitlab_url: gitlabResult.gitlab_url });
 		} else {
 			switch (gitlabResult.code) {
 				case 'project_not_exist':

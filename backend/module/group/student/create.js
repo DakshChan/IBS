@@ -40,7 +40,7 @@ router.post("/", async (req, res) => {
 
 		if (result.success === true) {
 			const message = "Group and Gitlab repo have been created. User has been added to the Gitlab project.";
-			return res.status(200).json({ message, group_id: newGroup.group_id, url: result.url });
+			return res.status(200).json({ message, group_id: newGroup.group_id, url: result.gitlab_url });
 		} else if (result.code === "failed_create_project") {
 			return res.status(404).json({ message: "Unable to create the Gitlab project. Please contact system admin." });
 		} else if (result.code === "failed_add_user") {
