@@ -12,22 +12,21 @@ const upload = multer({
 
 router.post("/", upload.single("file"), (req, res) => {
 	if (req.file === undefined) {
-		res.status(400).json({ message: "The file is missing or has invalid format." });
-		return;
+		return res.status(400).json({ message: "The file is missing or has invalid format." });
 	}
+
 	if (path.extname(req.file.originalname) !== ".zip") {
-		res.status(200).json({ message: "The file must be a zip file." });
-		return;
+		return res.status(200).json({ message: "The file must be a zip file." });
 	}
+
 	if (!("task" in req.body) || helpers.name_validate(req.body["task"])) {
-		res.status(400).json({ message: "The task is missing or invalid." });
-		return;
+		return res.status(400).json({ message: "The task is missing or invalid." });
 	}
 
-	let zip_path = req.file.destination + req.file.filename;
-	var zip = new AdmZip(zip_path);
+	const zip_path = req.file.destination + req.file.filename;
+	const zip = new AdmZip(zip_path);
 
-	let dest_path = "./files/course_" + res.locals["course_id"] + "/" + req.body["task"];
+	const dest_path = "./files/course_" + res.locals["course_id"] + "/" + req.body["task"];
 	if (!fs.existsSync(dest_path)) {
 		fs.mkdirSync(dest_path, { recursive: true });
 	}

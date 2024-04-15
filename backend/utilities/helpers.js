@@ -6,9 +6,12 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
+const { GROUP_STATUS } = require("../helpers/constants");
+
+const { Task, GroupUser, Group, User } = require("../models");
+
 
 const JWT_EXPIRY = '120m';
 
@@ -313,24 +316,44 @@ function send_email(email, subject, body) {
 
 async function send_email_by_group(course_id, group_id, subject, body) {
     let group_emails = '';
-    let pg_res_user = await db.query(
-        'SELECT username FROM course_' +
-            course_id +
-            ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
-        [group_id]
-    );
-    for (let row of pg_res_user.rows) {
-        let pg_res_email = await db.query('SELECT email FROM user_info WHERE username = ($1)', [
-            row['username']
-        ]);
-        group_emails = group_emails + pg_res_email.rows[0]['email'] + ', ';
+    const group_members = await GroupUser.findAll({
+        attributes: ['username'],
+        where: {
+            group_id: group_id,
+            status: GROUP_STATUS.confirmed
+        }
+    });
+
+    for (let row of group_members) {
+        const user = await User.findOne({
+            attributes: ['email'],
+            where: {
+                username: row['username']
+            }
+        })
+
+        group_emails = group_emails + user.email + ', ';
     }
 
     await send_email(group_emails, subject, body);
 }
 
-function search_files(username, group_id, coure_id, sub_dir = '') {
-    let dir = __dirname + '/../files/course_' + coure_id + '/' + sub_dir;
+/**
+ * CAUTION: Recursive function
+ *
+ * Searches for all files associated with a group or a user in a specific course.
+ * Preconditions:
+ *      - a file is related to a group if it filename includes the substring 'group_{group_id}_'
+ *      - a file is related to a username if its filename includes the substring '{username}_'
+ *
+ * @param username the username of a person in the course
+ * @param group_id the id of a group for a specific task
+ * @param course_id the id of the course
+ * @param sub_dir recursion parameter
+ * @returns {*[]} a list of associated filenames
+ */
+function search_files(username, group_id, course_id, sub_dir = '') {
+    let dir = __dirname + '/../files/course_' + course_id + '/' + sub_dir;
     let result = [];
 
     if (!fs.existsSync(dir)) {
@@ -345,7 +368,7 @@ function search_files(username, group_id, coure_id, sub_dir = '') {
 
         if (stat.isDirectory()) {
             result = result.concat(
-                search_files(username, group_id, coure_id, sub_dir + files[i] + '/')
+                search_files(username, group_id, course_id, sub_dir + files[i] + '/')
             );
         } else if (
             file_name.indexOf(username + '_') >= 0 ||
@@ -455,18 +478,24 @@ async function get_group_task(course_id, group_id) {
 }
 
 async function get_group_id(course_id, task, username) {
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND username= ($2) AND status = 'confirmed'",
-        [task, username]
-    );
+    const task_item = await Task.findOne({
+        where: {
+            course_id,
+            task
+        }
+    });
 
-    if (pg_res.rowCount == 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['group_id'];
-    }
+    const users_group = await GroupUser.findOne({
+        where: {
+            task_id: task_item.id,
+            status: GROUP_STATUS.confirmed,
+            username
+        }
+    })
+
+    if (!users_group) return -1;
+
+    return users_group.group_id;
 }
 
 async function get_group_users(course_id, group_id) {
@@ -507,21 +536,26 @@ async function copy_groups(course_id, from_task, to_task) {
     let results = [];
     let group_user = {};
 
-    let pg_res_old_group_user = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND status = 'confirmed'",
-        [from_task]
-    );
-    for (let row of pg_res_old_group_user.rows) {
+    const originalTask = await Task.findOne({ where: { course_id, task: from_task } });
+    const oldGroupUsers = await GroupUser.findAll({
+        where: {
+            task_id: originalTask.id,
+            status: GROUP_STATUS.confirmed
+        }
+    });
+
+    const newTask = await Task.findOne({ where: { course_id, task: to_task } });
+
+    for (let row of oldGroupUsers) {
         // Check if the user already has a group in to_task
-        let pg_res_new_group_user = await db.query(
-            'SELECT * FROM course_' +
-                course_id +
-                '.group_user WHERE task = ($1) AND username = ($2)',
-            [to_task, row['username']]
-        );
-        if (pg_res_new_group_user.rowCount === 0) {
+        const newGroupUsers = await GroupUser.findAll({
+            where: {
+                task_id: newTask.id,
+                username: row.username
+            }
+        })
+
+        if (newGroupUsers.length === 0) {
             if (row['group_id'] in group_user) {
                 group_user[row['group_id']].push(row['username']);
             } else {
@@ -532,11 +566,9 @@ async function copy_groups(course_id, from_task, to_task) {
 
     for (let old_group_id in group_user) {
         // Add a new group in db
-        let pg_res_add_group = await db.query(
-            'INSERT INTO course_' + course_id + '.group (task) VALUES (($1)) RETURNING group_id',
-            [to_task]
-        );
-        let new_group_id = pg_res_add_group.rows[0]['group_id'];
+        const newGroup = await Group.create({ task_id: newTask.id });
+
+        const new_group_id = newGroup.group_id;
 
         // Create a new project on gitlab for the new group
         let add_project = await gitlab_create_group_and_project_no_user(
@@ -544,23 +576,22 @@ async function copy_groups(course_id, from_task, to_task) {
             new_group_id,
             to_task
         );
+
         if (add_project['success'] === false) {
             results.push({ group_id: old_group_id, code: add_project['code'] });
         } else {
             for (let user of group_user[old_group_id]) {
                 // Add user to the new group in db
-                let err_add_user,
-                    pg_res_add_user = await db.query(
-                        'INSERT INTO course_' +
-                            course_id +
-                            ".group_user (task, username, group_id, status) VALUES (($1), ($2), ($3), 'confirmed')",
-                        [to_task, user, new_group_id]
-                    );
-                if (err_add_user) {
-                    console.log('User ' + user + 'is already in a group');
-                } else {
+                try {
+                    await GroupUser.create({
+                        task_id: newTask.id,
+                        username: user,
+                        group_id: new_group_id,
+                        status: GROUP_STATUS.confirmed
+                    });
+
                     // Add user to the new project on gitlab
-                    add_user = await gitlab_add_user_with_gitlab_group_id(
+                    const add_user = await gitlab_add_user_with_gitlab_group_id(
                         add_project['gitlab_group_id'],
                         '',
                         user
@@ -568,6 +599,8 @@ async function copy_groups(course_id, from_task, to_task) {
                     if (add_user['success'] === false) {
                         results.push({ username: user, code: add_user['code'] });
                     }
+                } catch (e) {
+                    console.log('User ' + user + 'is already in a group');
                 }
             }
         }

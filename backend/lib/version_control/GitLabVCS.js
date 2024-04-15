@@ -2,36 +2,34 @@ const AbstractVCS = require("./AbstractVCS");
 const db = require("../../setup/db");
 const axios = require("axios");
 
+const { Group, Course, Task } = require("../../models")
+
 class GitlabVCS extends AbstractVCS {
     static async add_user_to_new_group(course_id, group_id, username) {
-        let pg_res = await db.query(
-            'SELECT gitlab_group_id, gitlab_url FROM course_' +
-            course_id +
-            '.group WHERE group_id = ($1)',
-            [group_id]
-        );
-        if (pg_res.rowCount !== 1) {
-            return { success: false, code: 'group_not_exist' };
-        }
-        let data = pg_res.rows[0];
+        const group_info = await Group.findOne({
+            where: { group_id }
+        });
+
+        if (!group_info) return { success: false, code: 'group_not_exist' };
+
         if (
-            data['gitlab_group_id'] === null ||
-            data['gitlab_url'] === null ||
-            data['gitlab_group_id'] === '' ||
-            data['gitlab_url'] === ''
+            group_info.gitlab_group_id === null ||
+            group_info.gitlab_url === null ||
+            group_info.gitlab_group_id === '' ||
+            group_info.gitlab_url === ''
         ) {
             return { success: false, code: 'group_not_exist' };
         }
-        return await this.add_user_with_group_id(
-            data['gitlab_group_id'],
-            data['gitlab_url'],
+        return await GitlabVCS.add_user_with_group_id(
+            group_info.gitlab_group_id,
+            group_info.gitlab_url,
             username
         );
     }
 
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
 
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await GitlabVCS.get_user_id(username);
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
         }
@@ -71,27 +69,26 @@ class GitlabVCS extends AbstractVCS {
     }
 
     static async create_group_and_project_no_user(course_id, group_id, task) {
-        // Get the gitlab group id
-        let pg_res_gitlab_course_group_id = await db.query(
-            'SELECT gitlab_group_id FROM course WHERE course_id = ($1)',
-            [course_id]
-        );
-        if (pg_res_gitlab_course_group_id.rowCount !== 1) {
-            return { success: false, code: 'invalid_gitlab_group' };
-        }
+        const course = await Course.findOne({
+            where: { course_id }
+        });
 
-        // Get the starter code url
-        let pg_res_starter_code_url = await db.query(
-            'SELECT starter_code_url FROM course_' + course_id + '.task WHERE task = ($1)',
-            [task]
-        );
+        if (!course) return { success: false, code: 'invalid_gitlab_group' };
+
+        const task_item = await Task.findOne({
+            where: {
+                course_id,
+                task
+            }
+        });
+
         let starter_code_url = null;
         if (
-            pg_res_starter_code_url.rowCount === 1 &&
-            pg_res_starter_code_url.rows[0]['starter_code_url'] !== null &&
-            pg_res_starter_code_url.rows[0]['starter_code_url'] !== ''
+            !task_item &&
+            task_item.starter_code_url !== null &&
+            task_item.starter_code_url !== ''
         ) {
-            starter_code_url = pg_res_starter_code_url.rows[0]['starter_code_url'];
+            starter_code_url = task_item.starter_code_url;
         }
 
         try {
@@ -104,33 +101,33 @@ class GitlabVCS extends AbstractVCS {
                 }
             };
 
-            let data_create_group = {
+            const data_create_group = {
                 path: group_name,
                 name: group_name,
-                parent_id: pg_res_gitlab_course_group_id.rows[0]['gitlab_group_id']
+                parent_id: course.gitlab_group_id
             };
-            let res_create_group = await axios.post(
+
+            const res_create_group = await axios.post(
                 process.env.GITLAB_URL + 'groups/',
                 data_create_group,
                 config
             );
+
             var gitlab_subgroup_id = res_create_group['data']['id'];
+
+            const data_create_project = {
+                path: task,
+                namespace_id: gitlab_subgroup_id
+            };
 
             // Create a new project in the subgroup
             if (starter_code_url !== null) {
-                var data_create_project = {
-                    path: task,
-                    namespace_id: gitlab_subgroup_id,
-                    import_url: starter_code_url
-                };
+                data_create_project.import_url = starter_code_url;
             } else {
-                var data_create_project = {
-                    path: task,
-                    namespace_id: gitlab_subgroup_id,
-                    initialize_with_readme: true
-                };
+                data_create_project.initialize_with_readme = true;
             }
-            let res_create_project = await axios.post(
+
+            const res_create_project = await axios.post(
                 process.env.GITLAB_URL + 'projects/',
                 data_create_project,
                 config
@@ -167,17 +164,16 @@ class GitlabVCS extends AbstractVCS {
             return { success: false, code: 'failed_create_project' };
         }
 
-        // Store the Gitlab info in the db
-        let sql_add_gitlab_info =
-            'UPDATE course_' +
-            course_id +
-            '.group SET gitlab_group_id = ($1), gitlab_project_id = ($2), gitlab_url = ($3) WHERE group_id = ($4)';
-        await db.query(sql_add_gitlab_info, [
-            gitlab_subgroup_id,
-            gitlab_project_id,
-            gitlab_url,
-            group_id
-        ]);
+        await Group.update(
+            {
+                gitlab_group_id: gitlab_subgroup_id,
+                gitlab_project_id,
+                gitlab_url
+            },
+            {
+                where: { group_id }
+            }
+        )
 
         return {
             success: true,
@@ -188,13 +184,13 @@ class GitlabVCS extends AbstractVCS {
     }
 
     static async create_group_and_project_with_user(course_id, group_id, username, task) {
-        let add_project = await this.create_group_and_project_no_user(course_id, group_id, task);
+        let add_project = await GitlabVCS.create_group_and_project_no_user(course_id, group_id, task);
         if (add_project['success'] === false) {
             return add_project;
         }
 
         // Add the user to the subgroup
-        return await this.add_user_with_group_id(
+        return await GitlabVCS.add_user_with_group_id(
             add_project['gitlab_group_id'],
             add_project['gitlab_url'],
             username
@@ -202,22 +198,20 @@ class GitlabVCS extends AbstractVCS {
     }
 
     static async remove_user_from_group(course_id, group_id, username) {
-        // Get gitlab_group_id
-        let pg_res = await db.query(
-            'SELECT gitlab_group_id FROM course_' + course_id + '.group WHERE group_id = ($1)',
-            [group_id]
-        );
-        if (pg_res.rowCount !== 1) {
+        const group = await Group.findOne({
+            where: { group_id }
+        });
+
+        if (!group) return { success: false, code: 'group_not_exist' };
+
+        if (group.gitlab_group_id === null || group.gitlab_group_id === '') {
             return { success: false, code: 'group_not_exist' };
         }
-        let data = pg_res.rows[0];
-        if (data['gitlab_group_id'] === null || data['gitlab_group_id'] === '') {
-            return { success: false, code: 'group_not_exist' };
-        }
-        let gitlab_group_id = data['gitlab_group_id'];
+
+        const gitlab_group_id = group.gitlab_group_id;
 
         // Get user_id
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await GitlabVCS.get_user_id(username);
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
         }
@@ -286,19 +280,15 @@ class GitlabVCS extends AbstractVCS {
     }
 
     static async get_commits(course_id, group_id) {
-        // Get gitlab_project_id
-        let pg_res = await db.query(
-            'SELECT gitlab_project_id FROM course_' + course_id + '.group WHERE group_id = ($1)',
-            [group_id]
-        );
-        if (pg_res.rowCount !== 1) {
+        const group = await Group.findOne({
+            where: { group_id }
+        });
+
+        if (!group || group.gitlab_project_id === null || group.gitlab_project_id === '') {
             return [];
         }
-        let data = pg_res.rows[0];
-        if (data['gitlab_project_id'] === null || data['gitlab_project_id'] === '') {
-            return [];
-        }
-        let gitlab_project_id = data['gitlab_project_id'];
+
+        const gitlab_project_id = group.gitlab_project_id;
 
         try {
             let config = {
@@ -311,10 +301,12 @@ class GitlabVCS extends AbstractVCS {
                 process.env.GITLAB_URL + 'projects/' + gitlab_project_id + '/repository/commits',
                 config
             );
+
             let res_push = await axios.get(
                 process.env.GITLAB_URL + 'projects/' + gitlab_project_id + '/events',
                 config
             );
+
             return { commit: res_commit['data'], push: res_push['data'] };
         } catch (err) {
             if (
