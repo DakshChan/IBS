@@ -26,7 +26,7 @@ router.delete("/", async (req, res) => {
 		});
 
 		if (!taskDetails) {
-			return res.status(400).json({ message: "Task not found." });
+			return res.status(400).json({ message: "The task is missing or invalid." });
 		}
 
 		const taskId = taskDetails.id;
