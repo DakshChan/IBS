@@ -83,9 +83,8 @@ describe('Get Mark as Instructor Endpoint', () => {
             .set('Authorization', cscInstructorToken)
             .send(markListPayload[2])
             .end((err, res) => {
-                expect(res).to.have.status(200);
-                expect(res.body).to.have.property('count', 0);
-                expect(res.body).to.have.property('message', '1 mark is hidden.');
+                expect(res).to.have.status(404);
+                expect(res.body).to.have.property('message', 'Unknown error.');
                 done();
             });
     });

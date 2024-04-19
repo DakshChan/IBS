@@ -11,6 +11,15 @@ router.put("/", async (req, res) => {
         return res.status(400).json({ message: "The task is missing or invalid." });
     }
 
+    // Find mark with task name
+    const marks = await Mark.findAll(
+        { where: { task_name: task } }
+    )
+
+    if (marks.length === 0) {
+        return res.status(404).json({ message: "Unknown error." });
+    }
+
     try {
         const [rowCount, _] = await Mark.update(
             { hidden: true },
