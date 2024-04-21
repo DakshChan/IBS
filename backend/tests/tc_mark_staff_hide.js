@@ -88,4 +88,16 @@ describe('Get Mark as Instructor Endpoint', () => {
                 done();
             });
     });
+
+    it('A student should have not be able to access this endpoint', (done) => {
+        chai.request(BASE_API_URL)
+            .put(hideStaffMarkEndpoint(1))
+            .set('Authorization', cscStudentAToken)
+            .query(markListPayload[0])
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                expect(res.body).to.have.property('message', 'Invalid or unauthorized access to course.');
+                done();
+            });
+    });
 });

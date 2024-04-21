@@ -9,12 +9,13 @@ chai.use(chaiHttp);
 const expect = chai.expect;
 
 /**
- * Constructs the endpoint to check if marks are hidden
+ * Constructs the endpoint to release student marks as an instructor given course id parameter
+ * and task name in the payload
  * @param course_id id of the course
- * @returns {`/instructor/course/${string}/mark/hide/`}
+ * @returns {`/instructor/course/${string}/mark/release`}
  */
-const staffMarkIsHiddenEndpoint = (course_id) => {
-    return `/instructor/course/${course_id}/mark/is_hidden`;
+const releaseStaffMarkEndpoint = (course_id) => {
+    return `/instructor/course/${course_id}/mark/release`;
 };
 
 const markListPayload = [
@@ -29,7 +30,7 @@ const markListPayload = [
     }
 ]
 
-describe('Check if Mark is hidden or not as Instructor Endpoint', () => {
+describe('Get Mark as Instructor Endpoint', () => {
     let cscInstructorToken, matInstructorToken, cscStudentAToken;
 
     beforeEach(async () => {
@@ -38,26 +39,28 @@ describe('Check if Mark is hidden or not as Instructor Endpoint', () => {
         cscStudentAToken = await getAuthBearerToken('cscstudentuserA', 'password');
     });
 
-    it('Marks are not hidden.', (done) => {
+    it('Multiple marks should be released.', (done) => {
         chai.request(BASE_API_URL)
-            .get(staffMarkIsHiddenEndpoint(1))
+            .put(releaseStaffMarkEndpoint(1))
             .set('Authorization', cscInstructorToken)
-            .query(markListPayload[0])
+            .send(markListPayload[0])
             .end((err, res) => {
                 expect(res).to.have.status(200);
-                expect(res.body).to.have.property('hidden').that.is.false;
+                expect(res.body).to.have.property('count', 7);
+                expect(res.body).to.have.property('message', '7 marks are released.');
                 done();
             });
     });
 
-    it('Marks are hidden', (done) => {
+    it('One mark should be released.', (done) => {
         chai.request(BASE_API_URL)
-            .get(staffMarkIsHiddenEndpoint(1))
+            .put(releaseStaffMarkEndpoint(1))
             .set('Authorization', cscInstructorToken)
-            .query(markListPayload[1])
+            .send(markListPayload[1])
             .end((err, res) => {
                 expect(res).to.have.status(200);
-                expect(res.body).to.have.property('hidden').that.is.true;
+                expect(res.body).to.have.property('count', 1);
+                expect(res.body).to.have.property('message', '1 mark is released.');
                 done();
             });
     });
@@ -65,9 +68,9 @@ describe('Check if Mark is hidden or not as Instructor Endpoint', () => {
 
     it('Should return an error if the task is missing or invalid', (done) => {
         chai.request(BASE_API_URL)
-            .get(staffMarkIsHiddenEndpoint(1))
+            .put(releaseStaffMarkEndpoint(1))
             .set('Authorization', cscInstructorToken)
-            .query({}) // Missing task
+            .send({}) // Missing task
             .end((err, res) => {
                 expect(res).to.have.status(400);
                 expect(res.body).to.have.property('message', 'The task is missing or invalid.');
@@ -75,21 +78,21 @@ describe('Check if Mark is hidden or not as Instructor Endpoint', () => {
             });
     });
 
-    it('Should return an empty json if the task does not exist', (done) => {
+    it('Should return an error if the task does not exist', (done) => {
         chai.request(BASE_API_URL)
-            .get(staffMarkIsHiddenEndpoint(1))
+            .put(releaseStaffMarkEndpoint(1))
             .set('Authorization', cscInstructorToken)
-            .query(markListPayload[2])
+            .send(markListPayload[2])
             .end((err, res) => {
-                expect(res).to.have.status(400);
-                expect(res.body).to.have.property('message', 'The task is missing or invalid.');
+                expect(res).to.have.status(404);
+                expect(res.body).to.have.property('message', 'Unknown error.');
                 done();
             });
     });
 
     it('A student should have not be able to access this endpoint', (done) => {
         chai.request(BASE_API_URL)
-            .get(staffMarkIsHiddenEndpoint(1))
+            .put(releaseStaffMarkEndpoint(1))
             .set('Authorization', cscStudentAToken)
             .query(markListPayload[0])
             .end((err, res) => {
@@ -98,4 +101,5 @@ describe('Check if Mark is hidden or not as Instructor Endpoint', () => {
                 done();
             });
     });
+
 });
