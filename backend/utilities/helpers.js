@@ -10,7 +10,7 @@ const db = require('../setup/db');
 const { VersionControlSystem } = require("../lib/version_control");
 const { GROUP_STATUS } = require("../helpers/constants");
 
-const { Task, GroupUser, Group, User } = require("../models");
+const { Task, GroupUser, User } = require("../models");
 
 
 const JWT_EXPIRY = '120m';
