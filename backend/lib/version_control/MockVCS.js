@@ -191,7 +191,6 @@ class MockVCS extends AbstractVCS {
                 },
                 "author_username":"user3"
             }];
-
         return { commit: res_commit, push: res_push };
     }
 }

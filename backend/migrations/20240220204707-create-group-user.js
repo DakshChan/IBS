@@ -19,7 +19,11 @@ module.exports = {
       status: {
         type: Sequelize.ENUM('confirmed', 'pending'),
         allowNull: false
-      }
+      },
+      token_count: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
     });
 
     await queryInterface.addConstraint('group_user', {

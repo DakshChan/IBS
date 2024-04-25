@@ -6,7 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task, GroupUser, Group, User } = require("../models");
+const { Task, TaskGroup, GroupUser, Group, User, Course, Submission } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
 const {GROUP_STATUS} = require("../helpers/constants");
@@ -459,19 +459,22 @@ async function get_group_task(course_id, group_id) {
 }
 
 async function get_group_id(course_id, task, username) {
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND username= ($2) AND status = 'confirmed'",
-        [task, username]
-    );
+    try {
+        const groupUser = await GroupUser.findOne({
+            where: { username, task_id: task, status: 'confirmed' }
+        });
 
-    if (pg_res.rowCount == 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['group_id'];
+        if (groupUser) {
+            return groupUser.dataValues['group_id'];
+        } else {
+            return -1;
+        }
+    } catch (error) {
+        console.error("Error occurred while finding groupUser:", error);
+        throw error;
     }
 }
+
 
 async function get_group_users(course_id, group_id) {
     let results = [];
@@ -793,27 +796,27 @@ async function format_marks_all_tasks_csv(json, course_id, res, total) {
     });
 }
 
-async function get_max_user_tokens(course_id, username) {
-    let pg_res_default_tokens = await db.query(
-        'SELECT default_token_count, token_length FROM course WHERE course_id = ($1)',
-        [course_id]
-    );
-    let pg_res_user_tokens = await db.query(
-        'SELECT token_count FROM course_' + course_id + '.user WHERE username = ($1)',
-        [username]
-    );
-    if (pg_res_default_tokens.rowCount !== 1 || pg_res_user_tokens.rowCount !== 1) {
+async function get_max_user_tokens(course_id, user, group_id) {
+    const course = await Course.findOne({
+        where: {
+            course_id
+        }
+    })
+    const default_token_count = course.default_token_count;
+    const default_token_length = course.token_length;
+
+    if (!default_token_count || !user.token_count) {
         return { token_count: -1, token_length: -1 };
     }
 
     let token_count = -1;
-    if (pg_res_user_tokens.rows[0]['token_count'] !== -1) {
-        token_count = pg_res_user_tokens.rows[0]['token_count'];
+    if (user.token_count !== -1) {
+        token_count = user.token_count;
     } else {
-        token_count = pg_res_default_tokens.rows[0]['default_token_count'];
+        token_count = default_token_count;
     }
 
-    let token_length = pg_res_default_tokens.rows[0]['token_length'];
+    let token_length = default_token_length;
 
     return {
         token_count: token_count,
@@ -822,27 +825,26 @@ async function get_max_user_tokens(course_id, username) {
     };
 }
 
-async function get_user_token_usage(course_id, username) {
-    let groups = [];
-    let usage = {};
+async function get_user_token_usage(course_id, user, task) {
+    let username = user.username;
 
-    let pg_res_groups = await db.query(
-        'SELECT group_id FROM course_' + course_id + '.group_user WHERE username = ($1)',
-        [username]
-    );
-    for (let row of pg_res_groups.rows) {
-        groups.push(row['group_id']);
-    }
+    const groupUserModels = await GroupUser.findAll({
+        where: { username }
+    });
+    const groupIds = groupUserModels.map(groupUser => groupUser.group_id);
 
-    let pg_res_submission = await db.query(
-        'SELECT * FROM course_' + course_id + '.submission WHERE group_id = ANY($1::int[])',
-        [groups]
-    );
-    for (let row of pg_res_submission.rows) {
-        usage[row['task']] = row['token_used'];
-    }
+    const submissionModels = await Submission.findAll({
+        where: { group_id: groupIds },
+        attributes: ['commit_id', 'token_used']
+    });
+    let totalTokenUsed = 0;
 
-    return usage;
+    await submissionModels.forEach(submission => {
+        if (submission.task !== task){
+            totalTokenUsed += submission.token_used;
+        }
+    });
+    return totalTokenUsed;
 }
 
 async function get_due_date(course_id, group_id) {
@@ -852,73 +854,61 @@ async function get_due_date(course_id, group_id) {
     let due_date_with_extension = null;
     let due_date_with_extension_and_token = null;
 
-    // Get task
-    let pg_res_group = await db.query(
-        'SELECT task, extension FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res_group.rowCount !== 1) {
+    const group = await Group.findOne({
+        where: {
+            group_id: group_id
+        },
+        attributes: ['task_id', 'extension']
+    })
+    
+    if (!group){
         return { due_date: null };
     }
-    let task = pg_res_group.rows[0]['task'];
+    const task_id = group.task_id;
 
-    // Get original due date
-    let pg_res_due_date = await db.query(
-        'SELECT due_date, max_token, task_group_id FROM course_' +
-            course_id +
-            '.task WHERE task = ($1)',
-        [task]
-    );
-    if (pg_res_due_date.rowCount !== 1) {
+    const task = await Task.findOne({
+        where: {
+            id: task_id
+        }
+    })
+    if (!task.due_date){
         return { due_date: null };
     }
-    due_date = moment(pg_res_due_date.rows[0]['due_date']).tz('America/Toronto');
+    due_date = moment(task.due_date).tz('America/Toronto');
 
     // Apply group extension to due date if applicable
     let group_extension = 0;
-    if (pg_res_group.rows[0]['extension'] !== null) {
-        group_extension = pg_res_group.rows[0]['extension'];
+    if (group.extension !== null) {
+        group_extension = group.extension;
     }
-    due_date_with_extension = moment(pg_res_due_date.rows[0]['due_date'])
+    due_date_with_extension = moment(task.due_date)
         .tz('America/Toronto')
         .add(group_extension, 'minutes');
 
     // Get max token of the task group if applicable
     let max_task_group_token = Infinity;
-    let task_group_id = pg_res_due_date.rows[0]['task_group_id'];
+    let task_group_id = task.task_group_id;
     if (task_group_id !== null) {
-        let pg_res_task_group = await db.query(
-            'SELECT max_token FROM course_' + course_id + '.task_group WHERE task_group_id = ($1)',
-            [task_group_id]
-        );
-        if (pg_res_task_group.rowCount !== 1) {
+        const task_group = await TaskGroup.findOne({
+            where: {
+                task_group_id
+            }
+        })
+
+        if (!task_group) {
             return { due_date: null };
         }
-        max_task_group_token = pg_res_task_group.rows[0]['max_token'];
+        max_task_group_token = task_group.max_token;
     }
 
-    // Get all tasks that are in the task group
-    let task_group_all_tasks = [];
-    if (task_group_id !== null) {
-        let pg_res_task_group_all_tasks = await db.query(
-            'SELECT task FROM course_' + course_id + '.task WHERE task_group_id = ($1)',
-            [task_group_id]
-        );
-        if (pg_res_task_group_all_tasks.rowCount < 1) {
-            return { due_date: null };
+    // Get all members that are in the group
+    const members = await GroupUser.findAll({
+        where: {
+            group_id
         }
-        for (let row of pg_res_task_group_all_tasks.rows) {
-            task_group_all_tasks.push(row['task']);
-        }
-    }
+    })
 
-    // Get all group members
-    let members = [];
-    let pg_res_members = await db.query(
-        'SELECT username FROM course_' + course_id + '.group_user WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res_members.rowCount < 1) {
+    if (!members) {
         return {
             task: task,
             due_date: due_date.format('YYYY-MM-DD HH:mm:ss'),
@@ -928,32 +918,30 @@ async function get_due_date(course_id, group_id) {
             token_length: -1
         };
     }
-    for (let row of pg_res_members.rows) {
-        members.push(row['username']);
+
+    if (task_group_id !== null) {
+        const task_group_all_tasks = await TaskGroup.findAll({
+            where: {
+                task_group_id
+            }
+        })
+        if (task_group_all_tasks.length < 1) {
+            return { due_date: null };
+        }
     }
 
-    // Get how long the task can be extended by token
     for (let user of members) {
         // Get max token the task allows
-        let max_task_token = pg_res_due_date.rows[0]['max_token'];
+        let max_task_token = task.max_token;
 
         // Get max token the user has
-        let max_user_token_data = await get_max_user_tokens(course_id, user);
+        let max_user_token_data = await get_max_user_tokens(course_id, user, group_id);
         let max_user_token = max_user_token_data['token_count'];
         token_length = max_user_token_data['token_length'];
 
         // Get user's token usage
-        let used_user_token = 0;
         let used_task_group_token = 0;
-        let usage = await get_user_token_usage(course_id, user);
-        for (let item in usage) {
-            if (item !== task) {
-                used_user_token += usage[item];
-                if (task_group_all_tasks.includes(item)) {
-                    used_task_group_token += usage[item];
-                }
-            }
-        }
+        let used_user_token = await get_user_token_usage(course_id, user, task);
 
         max_token = Math.min(
             max_token,
@@ -979,9 +967,9 @@ async function get_due_date(course_id, group_id) {
 
 async function get_submission_before_due_date(course_id, group_id) {
     let data = await gitlab_get_commits(course_id, group_id);
-    let commit_commits = data['commit']; // the commit history
-    let push_commits = data['push']; // the time when the commits were pushed (in case they modified the commit time manually)
 
+    let commit_commits = data['commit'];
+    let push_commits = data['push'];
     let due_date_data = await get_due_date(course_id, group_id);
     let task = due_date_data['task'];
     let due_date = due_date_data['due_date'];
@@ -1004,7 +992,6 @@ async function get_submission_before_due_date(course_id, group_id) {
     if (moment().isBefore(moment.tz(due_date_with_extension_and_token, 'America/Toronto'))) {
         before_due_date_with_extension_and_token = true;
     }
-
     // Get the last commit before due date
     for (let commit of commit_commits) {
         if (
