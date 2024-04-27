@@ -783,6 +783,7 @@ async function format_marks_one_task_csv(json, course_id, task, res, total) {
         current_time.format('DD') +
         '/';
     let dir = __dirname + '/../backup/' + dir_date;
+    console.log(dir);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }

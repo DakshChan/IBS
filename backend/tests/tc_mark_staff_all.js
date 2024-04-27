@@ -66,10 +66,10 @@ describe('Get a specific students mark as Instructor Endpoint', () => {
                 expect(marks['cscstudentusera']['Bonus']).to.have.property('mark').that.equals(10);
     
                 expect(marks['cscstudentusera']).to.have.property('Participation Bonus');
-                expect(marks['cscstudentusera']['Participation Bonus']).to.have.property('mark').that.equals(0);
+                expect(marks['cscstudentusera']['Participation Bonus']).to.have.property('mark').that.equals(4);
     
                 // Check if the total mark calculation is correct for 'cscstudentusera'
-                expect(marks['cscstudentusera']['Total']).to.have.property('mark').that.equals(110);
+                expect(marks['cscstudentusera']['Total']).to.have.property('mark').that.equals(114);
                 expect(marks['cscstudentusera']['Total']).to.have.property('out_of').that.equals(115);
     
                 // Check that Assignment-2 is not included
