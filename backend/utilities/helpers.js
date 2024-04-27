@@ -6,7 +6,7 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task, Criteria } = require("../models");
+const { Task, Criteria, GroupUser } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
 
@@ -392,16 +392,50 @@ async function get_tasks(course_id) {
 }
 
 async function get_criteria_id(course_id, task, criteria) {
-    let pg_res = await db.query(
-        'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1) AND criteria = ($2)',
-        [task, criteria]
-    );
+    try {
+        // Find the task first
+        const taskRow = await Task.findOne({
+            where: {
+                task: task,
+                course_id: course_id
+            }
+        });
 
-    if (pg_res.rowCount === 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['criteria_id'];
+        if (!taskRow) {
+            // Task not found
+            return -1;
+        }
+
+        // Now that we have the task, find the criteria
+        const criteriaRow = await Criteria.findOne({
+            where: {
+                task_name: task,
+                criteria: criteria
+            }
+        });
+
+        if (!criteriaRow) {
+            // Criteria not found
+            return -1;
+        }
+
+        return criteriaRow.id;
+    } catch (error) {
+        console.error(error);
+        // Handle any potential errors here
+        return -1; // Return -1 in case of error
     }
+
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1) AND criteria = ($2)',
+    //     [task, criteria]
+    // );
+
+    // if (pg_res.rowCount === 0) {
+    //     return -1;
+    // } else {
+    //     return pg_res.rows[0]['criteria_id'];
+    // }
 }
 
 async function get_criteria(course_id, task_name) {
@@ -482,37 +516,90 @@ async function get_group_id(course_id, task, username) {
 }
 
 async function get_group_users(course_id, group_id) {
-    let results = [];
-    let pg_res = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
-        [group_id]
-    );
+    const information = await GroupUser.findAll({
+        where: { group_id: group_id, status: 'confirmed' },
+        attributes: ['course_id', 'username']
+    });
 
-    for (let row of pg_res.rows) {
-        results.push(row['username']);
+    const usernames = [];
+
+    for (const info of information) {
+        // If task_id matches course_ids
+         const course = await Task.findOne({
+            where: {task_id: info.task_id, course_id: course_id },
+            attributes: ['course_id']
+        });
+
+        if (!course) {
+            // add username 
+            usernames.push(info.username);
+        }
     }
-    return results;
+
+    return usernames;
+
+    // let results = [];
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' +
+    //         course_id +
+    //         ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
+    //     [group_id]
+    // );
+
+    // for (let row of pg_res.rows) {
+    //     results.push(row['username']);
+    // }
+    // return results;
 }
 
 async function get_all_group_users(course_id, task) {
-    let results = {};
-    let pg_res = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND status = 'confirmed'",
-        [task]
-    );
+    const information = await Task.findAll({
+        where: { course_id: course_id, task: task},
+        attributes: ['id', 'course_id']
+    });
 
-    for (let row of pg_res.rows) {
-        if (row['group_id'] in results) {
-            results[row['group_id']].push(row['username']);
-        } else {
-            results[row['group_id']] = [row['username']];
+    // const information = await GroupUser.findAll({
+    //     where: { group_id: group_id, status: 'confirmed' }
+    // });
+
+    let results = {};
+
+    for (const info of information) {
+        try {
+            const user_info = await GroupUser.findAll({
+                where: {task_id: info.dataValues.id},
+                attributes: ['group_id', 'username']
+            });
+
+            for (user of user_info) {
+                if (user.dataValues.group_id in results) {
+                    results[user.dataValues.group_id].push(user.dataValues.username);
+                } else {
+                    results[user.dataValues.group_id] = [user.dataValues.username];
+                }
+            }
+        } catch (error) {
+            console.error(error);
         }
     }
+
     return results;
+
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' +
+    //         course_id +
+    //         ".group_user WHERE task = ($1) AND status = 'confirmed'",
+    //     [task]
+    // );
+
+    // for (let row of pg_res.rows) {
+    //     if (row['group_id'] in results) {
+    //         results[row['group_id']].push(row['username']);
+    //     } else {
+    //         results[row['group_id']] = [row['username']];
+    //     }
+    // }
+    // return results;
 }
 
 async function copy_groups(course_id, from_task, to_task) {

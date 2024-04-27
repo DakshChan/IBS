@@ -45,6 +45,7 @@ GroupUser.init({
 }, {
   sequelize,
   modelName: 'GroupUser',
+  tableName: 'group_user',
   timestamps: false
 });
 
