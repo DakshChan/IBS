@@ -967,7 +967,6 @@ async function get_due_date(course_id, group_id) {
 
 async function get_submission_before_due_date(course_id, group_id) {
     let data = await gitlab_get_commits(course_id, group_id);
-
     let commit_commits = data['commit'];
     let push_commits = data['push'];
     let due_date_data = await get_due_date(course_id, group_id);
@@ -1046,7 +1045,6 @@ async function get_submission_before_due_date(course_id, group_id) {
             token_used = Math.ceil(minutes_past_due_date_with_extension / token_length);
         }
     }
-
     return {
         group_id,
         task,
@@ -1279,8 +1277,6 @@ async function download_all_submissions(course_id, task) {
                 });
             }
         }
-
-
         // Remove any undefined entries
         return formattedGroups;
 
@@ -1288,47 +1284,6 @@ async function download_all_submissions(course_id, task) {
         console.error('Error retrieving submissions:', error);
         throw new Error('Failed to retrieve submissions');
     }
-
-
-
-    // let pg_res = await db.query(
-    //     'SELECT group_id FROM course_' + course_id + '.group WHERE task = ($1)',
-    //     [task]
-    // );
-
-    // for (let row of pg_res.rows) {
-    //     let group_id = row['group_id'];
-    //     let pg_res_gitlab_url = await db.query(
-    //         'SELECT gitlab_project_id, gitlab_url FROM course_' +
-    //             course_id +
-    //             '.group WHERE group_id = ($1)',
-    //         [group_id]
-    //     );
-    //     let pg_res_commit_id = await db.query(
-    //         'SELECT commit_id FROM course_' + course_id + '.submission WHERE group_id = ($1)',
-    //         [group_id]
-    //     );
-    //
-    //     let gitlab_url = pg_res_gitlab_url.rows[0]['gitlab_url'];
-    //     let gitlab_project_id = pg_res_gitlab_url.rows[0]['gitlab_project_id'];
-    //     if (gitlab_url !== null && gitlab_project_id !== null) {
-    //         let regex = gitlab_url.match(/https:\/\/([^\/]*)\/(.*)/);
-    //         let ssh_clone_url = 'git@' + regex[1] + ':' + regex[2] + '.git';
-    //
-    //         if (pg_res_gitlab_url.rowCount === 1 && pg_res_commit_id.rowCount === 1) {
-    //             groups.push({
-    //                 group_name: 'group_' + group_id,
-    //                 group_id: group_id,
-    //                 gitlab_project_id: gitlab_project_id,
-    //                 gitlab_url: gitlab_url,
-    //                 https_clone_url: gitlab_url + '.git',
-    //                 ssh_clone_url: ssh_clone_url,
-    //                 commit_id: pg_res_commit_id.rows[0]['commit_id']
-    //             });
-    //         }
-    //     }
-    // }
-    // return groups;
 }
 
 module.exports = {
