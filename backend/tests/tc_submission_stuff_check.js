@@ -32,7 +32,6 @@ describe('Check Submission Endpoint', () => {
                 // console.log(res.body)
                 expect(res).to.have.status(200);
                 const before_due_date = res.body.before_due_date;
-                console.log(res.body);
                 expect(before_due_date).to.have.property('group_id');
                 expect(before_due_date).to.have.property('task');
                 expect(before_due_date).to.have.property('due_date');
@@ -50,6 +49,15 @@ describe('Check Submission Endpoint', () => {
                 done();
             });
     });
-
+    it('should return 400 if username is missing', (done) => {
+        chai.request(BASE_API_URL)
+            .get(checkSubmissionEndpoint(1, 1, 'instructoruser'))
+            .set('Authorization', instructorToken)
+            .end((err, res) => {
+                expect(res).to.have.status(400);
+                expect(res.body).to.have.property('message', 'Missing username from the request body.');
+                done();
+            });
+    });
 
 });

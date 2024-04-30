@@ -7,10 +7,14 @@ const { Submission } = require("../../../models");
 router.get("/", async (req, res) => {
 	try {
 		let group_id, username;
+
 		if ("group_id" in req.query && !helpers.number_validate(req.body["group_id"])) {
 			group_id = req.body["group_id"];
 		} else if ("username" in req.query && !helpers.name_validate(req.body["username"])) {
 			username = req.body["username"];
+			if (!username){
+				return res.status(400).json({ message: "Missing username from the request body." });
+			}
 			group_id = await helpers.get_group_id(res.locals["course_id"], req.body["task"], username);
 			if (group_id === -1) {
 				return res.status(400).json({ message: "The user needs to join a group before checking the submission." });
