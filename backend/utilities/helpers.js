@@ -446,15 +446,18 @@ async function get_total_out_of(course_id) {
 }
 
 async function get_group_task(course_id, group_id) {
-    let pg_res = await db.query(
-        'SELECT task FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-
-    if (pg_res.rowCount == 0) {
-        return '';
-    } else {
-        return pg_res.rows[0]['task'];
+    try {
+        const groupModel = await Group.findOne({
+            where: { group_id }
+        });
+        if (groupModel){
+            return groupModel.task_id;
+        } else {
+            return '';
+        }
+    } catch (error) {
+        console.error("Error retrieving group task: ", error);
+        return ''
     }
 }
 
@@ -967,6 +970,7 @@ async function get_due_date(course_id, group_id) {
 
 async function get_submission_before_due_date(course_id, group_id) {
     let data = await gitlab_get_commits(course_id, group_id);
+
     let commit_commits = data['commit'];
     let push_commits = data['push'];
     let due_date_data = await get_due_date(course_id, group_id);
@@ -1063,112 +1067,100 @@ async function get_submission_before_due_date(course_id, group_id) {
 }
 
 async function collect_one_submission(course_id, group_id, overwrite) {
-    let task = await get_group_task(course_id, group_id);
-    if (task === '') {
-        return {
-            message: "The group id doesn't exist.",
-            group_id: group_id,
-            code: 'group_not_exist'
-        };
-    }
+    try {
+        let task = await get_group_task(course_id, group_id);
+        if (task === '') {
+            return {
+                message: "The group id doesn't exist.",
+                group_id: group_id,
+                code: 'group_not_exist'
+            };
+        }
 
-    if (!overwrite) {
-        let sql_check_submission =
-            'SELECT * FROM course_' +
-            course_id +
-            '.submission WHERE task = ($1) AND group_id = ($2)';
-        let sql_check_submission_data = [task, group_id];
-
-        let err_check_submission,
-            pg_res_check_submission = await db.query(
-                sql_check_submission,
-                sql_check_submission_data
-            );
-        if (err_check_submission) {
+        if (!overwrite) {
+            const existingSubmission = await Submission.findOne({
+                where: { task, group_id },
+                attributes: { exclude: ['createdAt', 'updatedAt'] }
+            });
+            if (existingSubmission) {
+                return {
+                    message:
+                        'The new submission is not collected as an old submission is found and overwrite is false.',
+                    group_id: group_id,
+                    code: 'submission_exists',
+                    submission: existingSubmission.toJSON()
+                };
+            }
             return {
                 message: 'Unknown error.',
                 group_id: group_id,
                 code: 'unknown_error',
                 submission: submission_data
             };
-        } else if (pg_res_check_submission.rowCount >= 1) {
+        }
+        let submission_data = await get_submission_before_due_date(course_id, group_id);
+
+        if (submission_data['due_date'] === null) {
             return {
-                message:
-                    'The new submission is not collected as an old submission is found and overwrite is false.',
+                message: 'Unknown error.',
                 group_id: group_id,
-                code: 'submission_exists',
-                submission: pg_res_check_submission.rows[0]
+                code: 'unknown_error',
+                submission: submission_data
             };
         }
-    }
+        if (submission_data['before_due_date_with_extension_and_token'] === true) {
+            return {
+                message: "Due date hasn't passed for this group.",
+                group_id: group_id,
+                code: 'before_due_date',
+                submission: submission_data
+            };
+        }
+        if (submission_data['commit_id'] === null) {
+            return {
+                message: 'No commit is found for this group.',
+                group_id: group_id,
+                code: 'no_commit',
+                submission: submission_data
+            };
+        }
 
-    let submission_data = await get_submission_before_due_date(course_id, group_id);
-    if (submission_data['due_date'] === null) {
+        const submission = await Submission.findOne({
+            where: { task, group_id },
+            attributes: ['submission_id'] // Only select the submission_id for efficiency
+        });
+        if (submission) {
+            // Submission already exists, handle accordingly
+            return {
+                message: 'The new submission is not collected as an old submission is found and overwrite is false.',
+                group_id: group_id,
+                code: 'submission_exists',
+                submission: submission.toJSON()
+            };
+        } else {
+            // Submission does not exist, create a new one
+            const newSubmission = await Submission.create({
+                task: task,
+                group_id: group_id,
+                commit_id: submission_data['commit_id'],
+                token_used: submission_data['token_used'],
+            });
+
+            return {
+                message: 'The new submission is collected.',
+                group_id: group_id,
+                code: 'submission_collected',
+                submission: newSubmission.toJSON()
+            };
+        }
+
+    } catch (error) {
+        console.error("Error collecting submission:", error);
         return {
             message: 'Unknown error.',
             group_id: group_id,
             code: 'unknown_error',
-            submission: submission_data
-        };
-    }
-    if (submission_data['before_due_date_with_extension_and_token'] === true) {
-        return {
-            message: "Due date hasn't passed for this group.",
-            group_id: group_id,
-            code: 'before_due_date',
-            submission: submission_data
-        };
-    }
-    if (submission_data['commit_id'] === null) {
-        return {
-            message: 'No commit is found for this group.',
-            group_id: group_id,
-            code: 'no_commit',
-            submission: submission_data
-        };
-    }
-
-    let sql_add_submission =
-        'INSERT INTO course_' +
-        course_id +
-        '.submission (task, group_id, commit_id, token_used) VALUES (($1), ($2), ($3), ($4))';
-    let sql_add_submission_data = [
-        submission_data['task'],
-        group_id,
-        submission_data['commit_id'],
-        submission_data['token_used']
-    ];
-
-    if (overwrite) {
-        sql_add_submission +=
-            ' ON CONFLICT (group_id) DO UPDATE SET commit_id = EXCLUDED.commit_id, token_used = EXCLUDED.token_used';
-    } else {
-        sql_add_submission += ' ON CONFLICT (group_id) DO NOTHING';
-    }
-
-    let err_add_submission,
-        pg_res_add_submission = await db.query(sql_add_submission, sql_add_submission_data);
-    if (err_add_submission) {
-        return {
-            message: 'Unknown error.',
-            group_id: group_id,
-            code: 'unknown_error',
-            submission: submission_data
-        };
-    } else if (pg_res_add_submission.rowCount === 0) {
-        return {
-            message:
-                'The new submission is not collected as an old submission is found and overwrite is false.',
-            group_id: group_id,
-            code: 'submission_exists',
-            submission: submission_data
-        };
-    } else {
-        return {
-            message: 'The new submission is collected.',
-            group_id: group_id,
-            code: 'submission_collected',
-            submission: submission_data
+            submission: null
         };
     }
 }

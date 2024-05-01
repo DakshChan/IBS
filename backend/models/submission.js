@@ -38,7 +38,8 @@ Submission.init({
 }, {
     sequelize,
     modelName: 'Submission',
-    tableName: 'submissions'
+    tableName: 'submissions',
+    timestamps: false
 });
 
 module.exports = Submission;
