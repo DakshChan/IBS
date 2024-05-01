@@ -26,6 +26,12 @@ module.exports = {
                 admin: false
             },
             {
+                username: 'cscstudentuser3',
+                password: bcrypt.hashSync('password', 8),
+                email: 'cscstudent2@example.com',
+                admin: false
+            },
+            {
                 username: 'studentnogroup',
                 password: bcrypt.hashSync('password', 8),
                 email: 'studentnogroup@example.com',
@@ -59,6 +65,11 @@ module.exports = {
             },
             {
                 username: 'cscstudentuser2',
+                course_id: 1,
+                role: ROLES.student,
+            },
+            {
+                username: 'cscstudentuser3',
                 course_id: 1,
                 role: ROLES.student,
             },
@@ -104,7 +115,24 @@ module.exports = {
                 course_id: 1,
                 task: "Task2",
                 long_name: "Second Task",
-                due_date: new Date('2024-01-15'),
+                due_date: new Date('2023-01-15'),
+                weight: 15,
+                hidden: false,
+                min_member: 1,
+                max_member: 4,
+                max_token: 3,
+                change_group: true,
+                hide_interview: false,
+                hide_file: false,
+                interview_group: null,
+                task_group_id: 1,
+                starter_code_url: null
+            },
+            {
+                course_id: 1,
+                task: "Task3",
+                long_name: "Task due not passed",
+                due_date: new Date('2034-01-15'),
                 weight: 15,
                 hidden: false,
                 min_member: 1,
@@ -149,7 +177,27 @@ module.exports = {
                 gitlab_url: "https://gitlab.com/username/repository-name",
                 createdAt: new Date(),
                 updatedAt: new Date()
-            }
+            },
+            { // with task due date not passed
+                group_id: 4,
+                task_id: 3,
+                extension: 5,
+                gitlab_group_id: 10000001,
+                gitlab_project_id: 123456,
+                gitlab_url: "https://gitlab.com/username/repository-name",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            {
+                group_id: 5,
+                task_id: 1,
+                extension: 5,
+                gitlab_group_id: 10000001,
+                gitlab_project_id: 123456,
+                gitlab_url: "https://gitlab.com/username/repository-name",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
         ]);
 
         await queryInterface.bulkInsert('group_user', [
@@ -174,31 +222,43 @@ module.exports = {
                 status: 'confirmed',
                 token_count: 10,
             },
+            {
+                task_id: 3,
+                username: "cscstudentuser",
+                group_id: 4,
+                status: 'confirmed',
+                token_count: 10,
+            },
+            {
+                task_id: 1,
+                username: "cscstudentuser3",
+                group_id: 5,
+                status: 'confirmed',
+                token_count: 10,
+            },
         ]);
 
         await queryInterface.bulkInsert('submissions', [
             {
-                submission_id: 1,
                 task: 1,
                 group_id: 1,
                 commit_id: 100000,
                 token_used: 2,
                 timestamp: new Date(),
             },
+            // {
+            //     submission_id: 3,
+            //     task: 2,
+            //     group_id: 3,
+            //     commit_id: 100000,
+            //     token_used: 0,
+            //     timestamp: new Date(),
+            // },
             {
-                submission_id: 2,
                 task: 1,
-                group_id: 2,
+                group_id: 5,
                 commit_id: 100000,
-                token_used: 0,
-                timestamp: new Date(),
-            },
-            {
-                submission_id: 3,
-                task: 2,
-                group_id: 3,
-                commit_id: 100000,
-                token_used: 0,
+                token_used: 4,
                 timestamp: new Date(),
             },
         ]);

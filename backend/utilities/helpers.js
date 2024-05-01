@@ -10,6 +10,7 @@ const { Task, TaskGroup, GroupUser, Group, User, Course, Submission } = require(
 
 const { VersionControlSystem } = require("../lib/version_control");
 const {GROUP_STATUS} = require("../helpers/constants");
+const sequelize = require('../helpers/database');
 
 const JWT_EXPIRY = '120m';
 
@@ -1164,66 +1165,65 @@ async function collect_one_submission(course_id, group_id, overwrite) {
         };
     }
 }
+function aggregateResults(results) {
+    const stats = {
+        collected_count: 0,
+        empty_count: 0,
+        ignore_count: 0,
+        before_due_date_count: 0,
+        error_count: 0,
+        collected_groups: [],
+        empty_groups: [],
+        ignore_groups: [],
+        before_due_date_groups: [],
+        error_groups: []
+    };
+
+    results.forEach(result => {
+        const { code, group_id } = result;
+        if (code === 'submission_collected') {
+            stats.collected_count += 1;
+            stats.collected_groups.push(group_id);
+        } else if (code === 'submission_exists') {
+            stats.ignore_count += 1;
+            stats.ignore_groups.push(group_id);
+        } else if (code === 'no_commit') {
+            stats.empty_count += 1;
+            stats.empty_groups.push(group_id);
+        } else if (code === 'before_due_date') {
+            stats.before_due_date_count += 1;
+            stats.before_due_date_groups.push(group_id);
+        } else if (code === 'unknown_error') {
+            stats.error_count += 1;
+            stats.error_groups.push(group_id);
+        }
+    });
+
+    return stats;
+}
 
 async function collect_all_submissions(course_id, task, overwrite) {
-    collect_processes = [];
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            '.group_user WHERE task = ($1) GROUP BY group_id HAVING COUNT(username) >= 1',
-        [task]
-    );
-    for (let row of pg_res.rows) {
-        collect_processes.push(collect_one_submission(course_id, row['group_id'], overwrite));
+    try {
+        const taskModel = await Task.findOne({
+            where: { course_id, task }
+        });
+
+        const groupIds = await GroupUser.findAll({
+            where: { task_id: taskModel.id },
+            attributes: ['group_id'],
+            group: ['group_id'],
+            having: sequelize.where(sequelize.fn('count', sequelize.col('username')), '>=', 1)
+        });
+
+        const collectProcesses = groupIds.map(group => collect_one_submission(course_id, group.group_id, overwrite));
+
+        const results = await Promise.all(collectProcesses);
+        return aggregateResults(results);
+
+    } catch (error) {
+        console.error("Error collecting all submissions:", error);
+        throw error;
     }
-
-    let results = await Promise.all(collect_processes);
-
-    let collected_count = 0;
-    let empty_count = 0;
-    let ignore_count = 0;
-    let before_due_date_count = 0;
-    let error_count = 0;
-    let collected_groups = [];
-    let empty_groups = [];
-    let ignore_groups = [];
-    let before_due_date_groups = [];
-    let error_groups = [];
-
-    for (let result of results) {
-        let code = result['code'];
-        let group_id = result['group_id'];
-
-        if (code === 'submission_collected') {
-            collected_count += 1;
-            collected_groups.push(group_id);
-        } else if (code === 'submission_exists') {
-            ignore_count += 1;
-            ignore_groups.push(group_id);
-        } else if (code === 'no_commit') {
-            empty_count += 1;
-            empty_groups.push(group_id);
-        } else if (code === 'before_due_date') {
-            before_due_date_count += 1;
-            before_due_date_groups.push(group_id);
-        } else if (code === 'unknown_error') {
-            error_count += 1;
-            error_groups.push(group_id);
-        }
-    }
-
-    return {
-        collected_count,
-        empty_count,
-        ignore_count,
-        before_due_date_count,
-        error_count,
-        collected_groups,
-        empty_groups,
-        ignore_groups,
-        before_due_date_groups,
-        error_groups
-    };
 }
 
 async function download_all_submissions(course_id, task) {
