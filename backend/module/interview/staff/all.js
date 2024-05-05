@@ -1,27 +1,53 @@
+const moment = require('moment');
+require('moment-timezone');
 const express = require("express");
 const router = express.Router();
+const { Interview } = require("../../../models");
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
+const sequelize = require('../../../helpers/database');
 
-router.get("/", (req, res) => {
-    if (res.locals["task"] === "") {
-        res.status(400).json({ message: "The task is missing or invalid." });
-        return;
+
+router.get("/", async(req, res) => {
+    try {
+        if (res.locals["task"] === "") {
+            res.status(400).json({ message: "The task is missing or invalid." });
+            return;
+        }
+
+        let filter = helpers.interview_data_filter(req.query, true, res.locals["username"]);
+
+        const interviews = await Interview.findAll({
+            attributes: [
+                'id',
+                'task_name',
+                'time',
+                'host',
+                'group_id',
+                'length',
+                'location',
+                'note',
+                'cancelled'
+            ],
+            where: filter,
+            order: [
+                ['time', 'ASC']
+            ]
+        });
+        
+        // Format timestamps with time zones here
+        interviews.forEach(interview => {
+            interview.dataValues.length = parseInt(interview.length); // Workaround
+            const formattedTime = moment(interview.time).tz('America/Toronto').format('YYYY-MM-DD HH:mm:ss');
+            interview.dataValues.time = formattedTime;
+        });
+
+        return res.status(200).json({ count: interviews.length, interviews: interviews });
+    } catch (error) {
+        console.error(error);
+        return res.status(404).json({ message: "Unknown error." });
     }
 
-    let temp = helpers.interview_data_filter(req.query, 2, true, res.locals["username"]);
-    let filter = temp["filter"];
-    let data = temp["data"];
-
-    let sql_times = "SELECT interview_id, task, to_char(time AT TIME ZONE 'America/Toronto', 'YYYY-MM-DD HH24:MI:SS') AS start_time, to_char(time AT TIME ZONE 'America/Toronto' + CONCAT(length,' minutes')::INTERVAL, 'YYYY-MM-DD HH24:MI:SS') AS end_time, host, group_id, length, location, note, cancelled FROM course_" + res.locals["course_id"] + ".interview WHERE task = ($1)" + filter + " ORDER BY time";
-    client.query(sql_times, [res.locals["task"]].concat(data), (err, pg_res) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-            console.log(err)
-        } else {
-            res.status(200).json({ count: pg_res.rowCount, interviews: pg_res.rows });
-        }
-    });
 })
 
 module.exports = router;

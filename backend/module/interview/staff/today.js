@@ -2,22 +2,56 @@ const express = require("express");
 const router = express.Router();
 const moment = require("moment");
 require("moment-timezone");
-const client = require("../../../setup/db");
+const { Op } = require("sequelize");
+const { Interview } = require("../../../models");
 
-router.get("/", (req, res) => {
-    if (res.locals["task"] === "") {
-        res.status(400).json({ message: "The task is missing or invalid." });
-        return;
-    }
-
-    let sql_times = "SELECT interview_id, task, to_char(time AT TIME ZONE 'America/Toronto', 'YYYY-MM-DD HH24:MI:SS') AS start_time, to_char(time AT TIME ZONE 'America/Toronto' + CONCAT(length,' minutes')::INTERVAL, 'YYYY-MM-DD HH24:MI:SS') AS end_time, host, group_id, length, location, note, cancelled FROM course_" + res.locals["course_id"] + ".interview WHERE task = ($1) AND host = ($2) AND time BETWEEN ($3) AND ($3) + INTERVAL '24 HOURS' ORDER BY time";
-    client.query(sql_times, [res.locals["task"], res.locals["username"], moment().tz("America/Toronto").format("YYYY-MM-DD") + " America/Toronto"], (err, pg_res) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-        } else {
-            res.status(200).json({ count: pg_res.rowCount, interviews: pg_res.rows });
+router.get("/", async (req, res) => {
+    try {
+        if (res.locals["task"] === "") {
+            res.status(400).json({ message: "The task is missing or invalid." });
+            return;
         }
-    });
-})
+
+        // Get the current date in America/Toronto timezone
+        const currentDate = moment().tz("America/Toronto").format("YYYY-MM-DD");
+
+        const startDate = new Date(`${currentDate} 00:00:00`);
+        const endDate = new Date(`${currentDate} 23:59:59`)
+
+        // Find interviews within the next 24 hours for the specified task and host
+        const interviews = await Interview.findAll({
+            where: {
+                task_name: res.locals["task"],
+                host: res.locals["username"],
+                time: {
+                    [Op.between]: [
+                        startDate,
+                        endDate
+                    ]
+                }
+            },
+            order: [['time', 'ASC']]
+        });
+
+        // Map the interviews to the required format
+        const formattedInterviews = interviews.map(interview => ({
+            id: interview.interview_id,
+            task_name: interview.task_name,
+            start_time: moment(interview.time).tz('America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
+            end_time: moment(interview.time).add(interview.length, 'minutes').tz('America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
+            host: interview.host,
+            group_id: interview.group_id,
+            length: parseInt(interview.length),
+            location: interview.location,
+            note: interview.note,
+            cancelled: interview.cancelled
+        }));
+
+        return res.status(200).json({ count: interviews.length, interviews: formattedInterviews });
+    } catch (error) {
+        console.error(error);
+        return res.status(404).json({ message: "Unknown error." });
+    }
+});
 
 module.exports = router;
