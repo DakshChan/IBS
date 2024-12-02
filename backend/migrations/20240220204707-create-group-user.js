@@ -22,7 +22,7 @@ module.exports = {
       },
       token_count: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        default: 10
       },
     });
 

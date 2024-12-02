@@ -9,6 +9,7 @@ class Group extends Model {
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     }); // foreignKey will default to the primary key of Task model
+    Group.hasMany(models.Submission, { foreignKey: 'group_id' });
   }
 }
 

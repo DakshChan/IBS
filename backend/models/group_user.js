@@ -47,7 +47,7 @@ GroupUser.init({
   },
   token_count: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    default: 10
   },
 }, {
   sequelize,
