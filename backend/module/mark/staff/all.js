@@ -8,7 +8,7 @@ const sequelize = require('../../../helpers/database');
 router.get("/", async(req, res) => {
     try {
         let courseId = res.locals.course_id;
-        let total = req.query["total"] === true || req.query["total"] === "true";
+        let total = req.query["total"] === true || req.query["total"] === "true"; // TODO Check: Is this needed?
         const task = req.query["task"];
         let marks;
 
@@ -43,10 +43,15 @@ router.get("/", async(req, res) => {
             marks = await helpers.format_marks_one_task(marksData, courseId, task, true);
         }
 
+        // Handle no marks found
+        if (!marks || Object.keys(marks).length === 0) {
+            return res.status(404).json({ message: "Task does not exist or mark(s) not found for this task." });
+        }
+
         res.status(200).json({marks});
     } catch (error) {
         console.error(error);
-        res.status(404).json({message: "Unknown error."});
+        res.status(500).json({message: "Unknown error."});
     }
 })
 

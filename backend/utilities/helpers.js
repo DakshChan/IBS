@@ -447,7 +447,7 @@ async function get_criteria(course_id, task_name) {
     });
 
     if (!task) {
-        throw new Error('Task not found');
+        return {}; // no task found case
     }
 
     let criterias = await Criteria.findAll({
