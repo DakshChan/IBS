@@ -9,16 +9,19 @@ class GroupUser extends Model {
    */
   static associate(models) {
     GroupUser.belongsTo(models.Group, {
+      foreignKey: "group_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT',
     });
 
     GroupUser.belongsTo(models.Task, {
+      foreignKey: "task_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     });
 
     GroupUser.belongsTo(models.User, {
+      foreignKey: "username",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     })
