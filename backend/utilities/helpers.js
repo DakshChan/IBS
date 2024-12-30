@@ -447,7 +447,7 @@ async function get_criteria(course_id, task_name) {
     });
 
     if (!task) {
-        return {}; // no task found case
+        return null; // no task 
     }
 
     let criterias = await Criteria.findAll({
@@ -678,6 +678,10 @@ async function copy_groups(course_id, from_task, to_task) {
 async function format_marks_one_task(json, course_id, task, total) {
     let marks = {};
     let all_criteria = await get_criteria(course_id, task);
+
+    if (all_criteria === null) {
+        return { "error": "Task not found"};
+    }
 
     if (Object.keys(all_criteria).length === 0) {
         return {};

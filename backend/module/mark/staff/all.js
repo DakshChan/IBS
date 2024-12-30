@@ -43,9 +43,8 @@ router.get("/", async(req, res) => {
             marks = await helpers.format_marks_one_task(marksData, courseId, task, true);
         }
 
-        // Handle no marks found
-        if (!marks || Object.keys(marks).length === 0) {
-            return res.status(404).json({ message: "Task does not exist or mark(s) not found for this task." });
+        if (marks && 'error' in marks) {
+            return res.status(404).json({ message: marks.error });
         }
 
         res.status(200).json({marks});
