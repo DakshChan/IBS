@@ -10,7 +10,7 @@ const db = require('../setup/db');
 const { VersionControlSystem } = require("../lib/version_control");
 const { GROUP_STATUS } = require("../helpers/constants");
 
-const { Task, GroupUser, Group, User } = require("../models");
+const { Task, GroupUser, Group, User, Criteria } = require("../models");
 
 
 const JWT_EXPIRY = '120m';
@@ -415,49 +415,98 @@ async function get_tasks(course_id) {
 }
 
 async function get_criteria_id(course_id, task, criteria) {
-    let pg_res = await db.query(
-        'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1) AND criteria = ($2)',
-        [task, criteria]
-    );
+    try {
+        // Find the task first
+        const taskRow = await Task.findOne({
+            where: {
+                task: task,
+                course_id: course_id
+            }
+        });
 
-    if (pg_res.rowCount === 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['criteria_id'];
+        if (!taskRow) {
+            // Task not found
+            return -1;
+        }
+
+        // Now that we have the task, find the criteria
+        const criteriaRow = await Criteria.findOne({
+            where: {
+                task_name: task,
+                criteria: criteria
+            }
+        });
+
+        if (!criteriaRow) {
+            // Criteria not found
+            return -1;
+        }
+
+        return criteriaRow.id;
+    } catch (error) {
+        console.error(error);
+        // Handle any potential errors here
+        return -1; // Return -1 in case of error
     }
+
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1) AND criteria = ($2)',
+    //     [task, criteria]
+    // );
+
+    // if (pg_res.rowCount === 0) {
+    //     return -1;
+    // } else {
+    //     return pg_res.rows[0]['criteria_id'];
+    // }
 }
 
-async function get_criteria(course_id, task) {
-    let pg_res = await db.query(
-        'SELECT * FROM course_' + course_id + '.criteria WHERE task = ($1)',
-        [task]
-    );
+async function get_criteria(course_id, task_name) {
+    let task = await Task.findOne({
+        where: {
+            course_id: course_id,
+            task: task_name
+        }
+    });
+
+    if (!task) {
+        return null; // no task 
+    }
+
+    let criterias = await Criteria.findAll({
+        where: { task_name: task.task }
+    });
 
     let all_criteria = {};
-    for (let row of pg_res.rows) {
+    for (let row of criterias) {
         let criteria = {};
-        criteria['task'] = row['task'];
-        criteria['criteria'] = row['criteria'];
-        criteria['total'] = parseFloat(row['total']);
-        criteria['description'] = row['description'];
+        criteria['task'] = row.dataValues.task_name;
+        criteria['criteria'] = row.dataValues.criteria;
+        criteria['total'] = parseFloat(row.dataValues.total);
+        criteria['description'] = row.dataValues.description;
 
-        all_criteria[row['criteria_id']] = criteria;
+        all_criteria[row.dataValues.id] = criteria;
     }
 
     return all_criteria;
 }
 
-async function get_total_out_of(course_id) {
-    let pg_res = await db.query(
-        'SELECT task, SUM(total) AS sum FROM course_' + course_id + '.criteria GROUP BY task',
-        []
-    );
+async function get_total_out_of(course_id, task_names) {
+    let tasks = await Task.findAll({
+        where: {course_id: course_id},
+        attributes: ["task"]
+    });
 
     let total_out_of = {};
-    for (let row of pg_res.rows) {
-        total_out_of[row['task']] = parseFloat(row['sum']);
-    }
 
+    for (let task of tasks) {
+        if (task_names.includes(task.task)) {
+            let criteriaSum = await Criteria.sum('total', {
+                where: { task_name: task.dataValues.task}
+            });
+            total_out_of[task.dataValues.task] = criteriaSum;
+        }
+    }
     return total_out_of;
 }
 
@@ -496,37 +545,90 @@ async function get_group_id(course_id, task, username) {
 }
 
 async function get_group_users(course_id, group_id) {
-    let results = [];
-    let pg_res = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
-        [group_id]
-    );
+    const information = await GroupUser.findAll({
+        where: { group_id: group_id, status: 'confirmed' },
+        attributes: ['course_id', 'username']
+    });
 
-    for (let row of pg_res.rows) {
-        results.push(row['username']);
+    const usernames = [];
+
+    for (const info of information) {
+        // If task_id matches course_ids
+         const course = await Task.findOne({
+            where: {task_id: info.task_id, course_id: course_id },
+            attributes: ['course_id']
+        });
+
+        if (!course) {
+            // add username 
+            usernames.push(info.username);
+        }
     }
-    return results;
+
+    return usernames;
+
+    // let results = [];
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' +
+    //         course_id +
+    //         ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
+    //     [group_id]
+    // );
+
+    // for (let row of pg_res.rows) {
+    //     results.push(row['username']);
+    // }
+    // return results;
 }
 
 async function get_all_group_users(course_id, task) {
-    let results = {};
-    let pg_res = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND status = 'confirmed'",
-        [task]
-    );
+    const information = await Task.findAll({
+        where: { course_id: course_id, task: task},
+        attributes: ['id', 'course_id']
+    });
 
-    for (let row of pg_res.rows) {
-        if (row['group_id'] in results) {
-            results[row['group_id']].push(row['username']);
-        } else {
-            results[row['group_id']] = [row['username']];
+    // const information = await GroupUser.findAll({
+    //     where: { group_id: group_id, status: 'confirmed' }
+    // });
+
+    let results = {};
+
+    for (const info of information) {
+        try {
+            const user_info = await GroupUser.findAll({
+                where: {task_id: info.dataValues.id},
+                attributes: ['group_id', 'username']
+            });
+
+            for (user of user_info) {
+                if (user.dataValues.group_id in results) {
+                    results[user.dataValues.group_id].push(user.dataValues.username);
+                } else {
+                    results[user.dataValues.group_id] = [user.dataValues.username];
+                }
+            }
+        } catch (error) {
+            console.error(error);
         }
     }
+
     return results;
+
+    // let pg_res = await db.query(
+    //     'SELECT * FROM course_' +
+    //         course_id +
+    //         ".group_user WHERE task = ($1) AND status = 'confirmed'",
+    //     [task]
+    // );
+
+    // for (let row of pg_res.rows) {
+    //     if (row['group_id'] in results) {
+    //         results[row['group_id']].push(row['username']);
+    //     } else {
+    //         results[row['group_id']] = [row['username']];
+    //     }
+    // }
+    // return results;
 }
 
 async function copy_groups(course_id, from_task, to_task) {
@@ -610,6 +712,14 @@ async function format_marks_one_task(json, course_id, task, total) {
     let marks = {};
     let all_criteria = await get_criteria(course_id, task);
 
+    if (all_criteria === null) {
+        return { "error": "Task not found"};
+    }
+
+    if (Object.keys(all_criteria).length === 0) {
+        return {};
+    }
+
     for (let row of json) {
         let username = row['username'];
         if (!(username in marks)) {
@@ -622,8 +732,18 @@ async function format_marks_one_task(json, course_id, task, total) {
             }
         }
 
-        let criteria_name = all_criteria[row['criteria_id']]['criteria'];
-        marks[username][criteria_name]['mark'] = parseFloat(row['mark']);
+        // Find Criteria name from Criteria ID
+        let criteria_name = await Criteria.findOne({
+            where: {id: row.dataValues.criteria_id},
+            attributes: ["criteria"]
+        });
+
+        if (!row.dataValues.mark) {
+            return {};
+        }
+        else {
+            marks[username][criteria_name.dataValues.criteria]['mark'] = parseFloat(row.dataValues.mark);
+        }
     }
 
     if (total) {
@@ -637,7 +757,6 @@ async function format_marks_one_task(json, course_id, task, total) {
             marks[username]['Total'] = { mark: temp_total, out_of: temp_out_of };
         }
     }
-
     return marks;
 }
 
@@ -648,38 +767,41 @@ async function format_marks_one_task(json, course_id, task, total) {
  * @returns {Promise<*|string>}
  */
 async function get_task_weight(course_id, task_name) {
-    let pg_res = await db.query(
-        'SELECT weight FROM course_' + course_id + '.task WHERE task = ($1)',
-        [task_name]
-    );
+    let task = await Task.findOne({
+        where: {course_id: course_id, task: task_name},
+        attributes: ['weight']
+    });
 
-    if (pg_res.rowCount === 0) {
-        return '';
-    } else {
-        return pg_res.rows[0]['weight'];
-    }
+    return task ? task.weight : '';
 }
 
 async function format_marks_all_tasks(json, course_id) {
     let marks = {};
-    let total_out_of = await get_total_out_of(course_id);
+
+    const taskNames = json.map(mark => mark.dataValues.task_name);
+    const uniqueTaskNames = [...new Set(taskNames)];
+
+    let total_out_of = await get_total_out_of(course_id, taskNames);
 
     for (let row of json) {
-        let username = row['username'];
+        let username = row.dataValues.username;
+        let task = row.dataValues.task_name;
+
         if (!(username in marks)) {
             marks[username] = {};
-            for (let task in total_out_of) {
-                const task_weight = await get_task_weight(course_id, row['task']);
-                marks[username][task] = {
-                    mark: 0,
-                    out_of: total_out_of[task],
-                    weight: task_weight
-                };
-            }
         }
 
-        marks[username][row['task']]['mark'] = parseFloat(row['sum']);
+        if (!(task in marks[username])) {
+            const task_weight = await get_task_weight(course_id, task);
+            marks[username][task] = {
+                mark: 0,
+                out_of: total_out_of[task],
+                weight: task_weight
+            }
+        }
+        marks[username][row.dataValues.task_name]['mark'] = parseInt(row.dataValues.sum);
     }
+
     return marks;
 }
 
@@ -698,6 +820,7 @@ async function format_marks_one_task_csv(json, course_id, task, res, total) {
         current_time.format('DD') +
         '/';
     let dir = __dirname + '/../backup/' + dir_date;
+    console.log(dir);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
