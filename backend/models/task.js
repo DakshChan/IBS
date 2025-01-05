@@ -5,10 +5,18 @@ class Task extends Model {
   static associate(models) {
     Task.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
     Task.belongsTo(models.TaskGroup, { foreignKey: 'task_group_id', as: 'taskGroup' });
+    Task.hasMany(models.Submission, { foreignKey: 'task', as: 'submissions' });
+  
   }
 }
 
 Task.init({
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    allowNull: false,
+    autoIncrement: true
+  },
   course_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
