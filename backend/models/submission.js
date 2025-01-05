@@ -4,7 +4,13 @@ const sequelize = require('../helpers/database');
 
 class Submission extends Model {
     static associate(models) {
-        Submission.belongsTo(models.Group, { foreignKey: 'group_id', as: 'group'});
+        Submission.belongsTo(models.Group, { foreignKey: 'group_id', as: 'group' });
+        Submission.belongsTo(models.Task, {
+            foreignKey: 'task',
+            onDelete: 'RESTRICT',
+            onUpdate: 'RESTRICT',
+        });
+        
     }
 }
 
@@ -17,10 +23,18 @@ Submission.init({
     task: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+            model: 'tasks',
+            key: 'id'
+        }
     },
     group_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
+        references: {
+            model: 'groups',
+            key: 'group_id'
+        }
     },
     commit_id: {
         type: DataTypes.STRING,
