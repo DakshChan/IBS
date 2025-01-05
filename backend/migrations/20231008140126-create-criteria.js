@@ -34,6 +34,18 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
+
+    // await queryInterface.addConstraint('criteria', {
+    //   fields: ['task_name'],
+    //   type: 'foreign key',
+    //   name: 'fkey_task_name',
+    //   references: {
+    //     table: 'tasks',
+    //     field: 'task',
+    //   },
+    //   onDelete: 'RESTRICT',
+    //   onUpdate: 'RESTRICT',
+    // });
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropAllTables();

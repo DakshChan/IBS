@@ -172,27 +172,35 @@ class MockVCS extends AbstractVCS {
         }];
 
         let res_push =   [{
-            "id": 1,
-            "title":null,
-            "project_id":1,
-            "action_name":"opened",
-            "target_id":160,
-            "target_iid":53,
-            "target_type":"Issue",
-            "author_id":25,
-            "target_title":"Qui natus eos odio tempore et quaerat consequuntur ducimus cupiditate quis.",
-            "created_at":"2017-02-09T10:43:19.667Z",
-            "author":{
-                "name":"User 3",
-                "username":"user3",
-                "id":25,
-                "state":"active",
-                "avatar_url":"http://www.gravatar.com/avatar/97d6d9441ff85fdc730e02a6068d267b?s=80\u0026d=identicon",
-                "web_url":"https://gitlab.example.com/user3"
-            },
-            "author_username":"user3"
-        }];
-
+                "id": 1,
+                "title":null,
+                "project_id":1,
+                "action_name":"pushed to",
+                "target_id":160,
+                "target_iid":53,
+                "target_type":"Issue",
+                "author_id":25,
+                "target_title":"Qui natus eos odio tempore et quaerat consequuntur ducimus cupiditate quis.",
+                "created_at":"2017-02-09T10:43:19.667Z",
+                "author":{
+                    "name":"User 3",
+                    "username":"user3",
+                    "id":25,
+                    "state":"active",
+                    "avatar_url":"http://www.gravatar.com/avatar/97d6d9441ff85fdc730e02a6068d267b?s=80\u0026d=identicon",
+                    "web_url":"https://gitlab.example.com/user3"
+                },
+                "author_username":"user3",
+                "push_data": {
+                    "commit_count": 1,
+                    "action": "pushed",
+                    "ref_type": "branch",
+                    "commit_from": "50d4420237a9de7be1304607147aec22e4a14af7",
+                    "commit_to": "ed899a2f4b50b4370feeea94676502b42383c746",
+                    "ref": "main",
+                    "commit_title": "Add simple search to projects in public area"
+                },
+            }];
         return { commit: res_commit, push: res_push };
     }
 }

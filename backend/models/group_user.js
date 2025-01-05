@@ -44,7 +44,11 @@ GroupUser.init({
   status: {
     type: DataTypes.ENUM('confirmed', 'pending'),
     allowNull: false
-  }
+  },
+  token_count: {
+    type: DataTypes.INTEGER,
+    default: 10
+  },
 }, {
   sequelize,
   modelName: 'GroupUser',
