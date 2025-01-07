@@ -36,7 +36,7 @@ router.use("/course/:course_id/task/get", get_task);
 // Group
 router.use("/course/:course_id/group/check", check_group);
 router.use("/course/:course_id/group/create", create_group);
-// router.use("/course/:course_id/group/leave", leave_group);
+router.use("/course/:course_id/group/leave", leave_group);
 router.use("/course/:course_id/group/invite", invite_group);
 router.use("/course/:course_id/group/disinvite", disinvite_group);
 router.use("/course/:course_id/group/accept", accept_group);

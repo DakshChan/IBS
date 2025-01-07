@@ -10,9 +10,12 @@ const { Task, TaskGroup, GroupUser, Group, User, Course, Submission } = require(
 
 const { VersionControlSystem } = require("../lib/version_control");
 const { GROUP_STATUS } = require("../helpers/constants");
+
 const sequelize = require('../helpers/database');
 
 const JWT_EXPIRY = '120m';
+
+const { Group } = require('../models');
 
 // A few helper functions used the old gitlab helpers
 const gitlab_get_user_id = VersionControlSystem.get_user_id;
@@ -148,6 +151,7 @@ function password_validate(password) {
 }
 
 async function task_validate(course_id, task, student) {
+
     try {
         let whereCondition = { task, course_id };
         if (student) {

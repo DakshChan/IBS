@@ -42,6 +42,7 @@ class MockVCS extends AbstractVCS {
 
     static async create_group_and_project_no_user(course_id, group_id, task) {
 
+
         let course = await Course.findOne( { where: { course_id } });
 
         if (!course) {
@@ -86,9 +87,9 @@ class MockVCS extends AbstractVCS {
     static async create_group_and_project_with_user(course_id, group_id, username, task) {
         // 1. calls create_group_and_project_no_user
 
-            // 1.1 if fail
+        // 1.1 if fail
 
-            // 1.2 calls add_user_with_group_id()
+        // 1.2 calls add_user_with_group_id()
         let add_project = await MockVCS.create_group_and_project_no_user(course_id, group_id, task);
         if (add_project['success'] === false) {
             return add_project;
