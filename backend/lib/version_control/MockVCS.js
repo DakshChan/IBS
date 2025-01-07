@@ -5,9 +5,10 @@ const { User, Group, GroupUser, Course, Task } = require("../../models");
 
 class MockVCS extends AbstractVCS {
     static async add_user_to_new_group(course_id, group_id, username) {
-        let group = await Group.findOne({ where: { group_id } });
-
-        if (!group) {
+        let group;
+        try {
+            group = await Group.findOne({ where: { group_id } });
+        } catch (e) {  // Couldn't find a group with given group_id
             return { success: false, code: 'group_not_exist' };
         }
 
@@ -20,7 +21,7 @@ class MockVCS extends AbstractVCS {
             return { success: false, code: 'group_not_exist' };
         }
 
-        return await this.add_user_with_group_id(
+        return await MockVCS.add_user_with_group_id(
             group.gitlab_group_id,
             group.gitlab_url,
             username
@@ -29,7 +30,7 @@ class MockVCS extends AbstractVCS {
 
     static async add_user_with_group_id(vcs_group_id, vcs_url, username) {
         // 1. calls get_vcs_user_id(username) to get user_id
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await MockVCS.get_user_id(username);
 
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
@@ -41,6 +42,7 @@ class MockVCS extends AbstractVCS {
 
     static async create_group_and_project_no_user(course_id, group_id, task) {
 
+
         let course = await Course.findOne( { where: { course_id } });
 
         if (!course) {
@@ -48,7 +50,7 @@ class MockVCS extends AbstractVCS {
         }
 
         // Get the starter code url
-        let taskRow = await Task.findOne({ where: { task } })
+        let taskRow = await Task.findOne({ where: { task, course_id } })
 
         let starter_code_url = null;
         if (
@@ -85,16 +87,16 @@ class MockVCS extends AbstractVCS {
     static async create_group_and_project_with_user(course_id, group_id, username, task) {
         // 1. calls create_group_and_project_no_user
 
-            // 1.1 if fail
+        // 1.1 if fail
 
-            // 1.2 calls add_user_with_group_id()
-        let add_project = await this.create_group_and_project_no_user(course_id, group_id, task);
+        // 1.2 calls add_user_with_group_id()
+        let add_project = await MockVCS.create_group_and_project_no_user(course_id, group_id, task);
         if (add_project['success'] === false) {
             return add_project;
         }
 
         // Add the user to the subgroup
-        return await this.add_user_with_group_id(
+        return await MockVCS.add_user_with_group_id(
             add_project['gitlab_group_id'],
             add_project['gitlab_url'],
             username
@@ -113,7 +115,7 @@ class MockVCS extends AbstractVCS {
         }
 
         // Get user_id
-        let user_id = await this.get_vcs_user_id(username);
+        let user_id = await MockVCS.get_user_id(username);
         if (user_id === -1) {
             return { success: false, code: 'gitlab_invalid_username' };
         }
@@ -122,7 +124,7 @@ class MockVCS extends AbstractVCS {
     }
 
     static async get_user_id(username) {
-        if (username.contains("no_gitlab")) return -1;
+        if (username.includes("no_gitlab")) return -1;
 
         const user = await User.findOne({
             where: {
@@ -173,7 +175,7 @@ class MockVCS extends AbstractVCS {
                 "id": 1,
                 "title":null,
                 "project_id":1,
-                "action_name":"opened",
+                "action_name":"pushed to",
                 "target_id":160,
                 "target_iid":53,
                 "target_type":"Issue",
@@ -188,9 +190,17 @@ class MockVCS extends AbstractVCS {
                     "avatar_url":"http://www.gravatar.com/avatar/97d6d9441ff85fdc730e02a6068d267b?s=80\u0026d=identicon",
                     "web_url":"https://gitlab.example.com/user3"
                 },
-                "author_username":"user3"
+                "author_username":"user3",
+                "push_data": {
+                    "commit_count": 1,
+                    "action": "pushed",
+                    "ref_type": "branch",
+                    "commit_from": "50d4420237a9de7be1304607147aec22e4a14af7",
+                    "commit_to": "ed899a2f4b50b4370feeea94676502b42383c746",
+                    "ref": "main",
+                    "commit_title": "Add simple search to projects in public area"
+                },
             }];
-
         return { commit: res_commit, push: res_push };
     }
 }

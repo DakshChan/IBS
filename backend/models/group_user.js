@@ -9,16 +9,19 @@ class GroupUser extends Model {
    */
   static associate(models) {
     GroupUser.belongsTo(models.Group, {
+      foreignKey: "group_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT',
     });
 
     GroupUser.belongsTo(models.Task, {
+      foreignKey: "task_id",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     });
 
     GroupUser.belongsTo(models.User, {
+      foreignKey: "username",
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     })
@@ -41,7 +44,11 @@ GroupUser.init({
   status: {
     type: DataTypes.ENUM('confirmed', 'pending'),
     allowNull: false
-  }
+  },
+  token_count: {
+    type: DataTypes.INTEGER,
+    default: 10
+  },
 }, {
   sequelize,
   modelName: 'GroupUser',

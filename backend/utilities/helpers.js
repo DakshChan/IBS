@@ -6,10 +6,14 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
+
 const { Op } = require('sequelize');
-const { Task, Criteria, GroupUser } = require("../models");
+const { Task, Criteria, TaskGroup, GroupUser, Group, User, Course, Submission } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
+const { GROUP_STATUS } = require("../helpers/constants");
+
+const sequelize = require('../helpers/database');
 
 const JWT_EXPIRY = '120m';
 
@@ -147,6 +151,7 @@ function password_validate(password) {
 }
 
 async function task_validate(course_id, task, student) {
+
     try {
         let whereCondition = { task, course_id };
         if (student) {
@@ -285,24 +290,44 @@ function send_email(email, subject, body) {
 
 async function send_email_by_group(course_id, group_id, subject, body) {
     let group_emails = '';
-    let pg_res_user = await db.query(
-        'SELECT username FROM course_' +
-            course_id +
-            ".group_user WHERE group_id = ($1) AND status = 'confirmed'",
-        [group_id]
-    );
-    for (let row of pg_res_user.rows) {
-        let pg_res_email = await db.query('SELECT email FROM user_info WHERE username = ($1)', [
-            row['username']
-        ]);
-        group_emails = group_emails + pg_res_email.rows[0]['email'] + ', ';
+    const group_members = await GroupUser.findAll({
+        attributes: ['username'],
+        where: {
+            group_id: group_id,
+            status: GROUP_STATUS.confirmed
+        }
+    });
+
+    for (let row of group_members) {
+        const user = await User.findOne({
+            attributes: ['email'],
+            where: {
+                username: row['username']
+            }
+        })
+
+        group_emails = group_emails + user.email + ', ';
     }
 
     await send_email(group_emails, subject, body);
 }
 
-function search_files(username, group_id, coure_id, sub_dir = '') {
-    let dir = __dirname + '/../files/course_' + coure_id + '/' + sub_dir;
+/**
+ * CAUTION: Recursive function
+ *
+ * Searches for all files associated with a group or a user in a specific course.
+ * Preconditions:
+ *      - a file is related to a group if it filename includes the substring 'group_{group_id}_'
+ *      - a file is related to a username if its filename includes the substring '{username}_'
+ *
+ * @param username the username of a person in the course
+ * @param group_id the id of a group for a specific task
+ * @param course_id the id of the course
+ * @param sub_dir recursion parameter
+ * @returns {*[]} a list of associated filenames
+ */
+function search_files(username, group_id, course_id, sub_dir = '') {
+    let dir = __dirname + '/../files/course_' + course_id + '/' + sub_dir;
     let result = [];
 
     if (!fs.existsSync(dir)) {
@@ -317,7 +342,7 @@ function search_files(username, group_id, coure_id, sub_dir = '') {
 
         if (stat.isDirectory()) {
             result = result.concat(
-                search_files(username, group_id, coure_id, sub_dir + files[i] + '/')
+                search_files(username, group_id, course_id, sub_dir + files[i] + '/')
             );
         } else if (
             file_name.indexOf(username + '_') >= 0 ||
@@ -422,7 +447,7 @@ async function get_criteria(course_id, task_name) {
     });
 
     if (!task) {
-        throw new Error('Task not found');
+        return null; // no task 
     }
 
     let criterias = await Criteria.findAll({
@@ -463,32 +488,57 @@ async function get_total_out_of(course_id, task_names) {
 }
 
 async function get_group_task(course_id, group_id) {
-    let pg_res = await db.query(
-        'SELECT task FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-
-    if (pg_res.rowCount == 0) {
-        return '';
-    } else {
-        return pg_res.rows[0]['task'];
+    try {
+        const groupModel = await Group.findOne({
+            where: { group_id }
+        });
+        if (groupModel){
+            return groupModel.task_id;
+        } else {
+            return '';
+        }
+    } catch (error) {
+        console.error("Error retrieving group task: ", error);
+        return ''
     }
 }
 
 async function get_group_id(course_id, task, username) {
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND username= ($2) AND status = 'confirmed'",
-        [task, username]
-    );
+    try {
+        const groupUser = await GroupUser.findOne({
+            where: { username, task_id: task, status: 'confirmed' }
+        });
 
-    if (pg_res.rowCount == 0) {
-        return -1;
-    } else {
-        return pg_res.rows[0]['group_id'];
+        if (groupUser) {
+            return groupUser.dataValues['group_id'];
+        } else {
+            return -1;
+        }
+    } catch (error) {
+        console.error("Error occurred while finding groupUser:", error);
+        throw error;
     }
+// TODO: Remove if not needed
+//     const task_item = await Task.findOne({
+//         where: {
+//             course_id,
+//             task
+//         }
+//     });
+
+//     const users_group = await GroupUser.findOne({
+//         where: {
+//             task_id: task_item.id,
+//             status: GROUP_STATUS.confirmed,
+//             username
+//         }
+//     })
+
+//     if (!users_group) return -1;
+
+//     return users_group.group_id;
 }
+
 
 async function get_group_users(course_id, group_id) {
     const information = await GroupUser.findAll({
@@ -581,21 +631,26 @@ async function copy_groups(course_id, from_task, to_task) {
     let results = [];
     let group_user = {};
 
-    let pg_res_old_group_user = await db.query(
-        'SELECT * FROM course_' +
-            course_id +
-            ".group_user WHERE task = ($1) AND status = 'confirmed'",
-        [from_task]
-    );
-    for (let row of pg_res_old_group_user.rows) {
+    const originalTask = await Task.findOne({ where: { course_id, task: from_task } });
+    const oldGroupUsers = await GroupUser.findAll({
+        where: {
+            task_id: originalTask.id,
+            status: GROUP_STATUS.confirmed
+        }
+    });
+
+    const newTask = await Task.findOne({ where: { course_id, task: to_task } });
+
+    for (let row of oldGroupUsers) {
         // Check if the user already has a group in to_task
-        let pg_res_new_group_user = await db.query(
-            'SELECT * FROM course_' +
-                course_id +
-                '.group_user WHERE task = ($1) AND username = ($2)',
-            [to_task, row['username']]
-        );
-        if (pg_res_new_group_user.rowCount === 0) {
+        const newGroupUsers = await GroupUser.findAll({
+            where: {
+                task_id: newTask.id,
+                username: row.username
+            }
+        })
+
+        if (newGroupUsers.length === 0) {
             if (row['group_id'] in group_user) {
                 group_user[row['group_id']].push(row['username']);
             } else {
@@ -606,11 +661,9 @@ async function copy_groups(course_id, from_task, to_task) {
 
     for (let old_group_id in group_user) {
         // Add a new group in db
-        let pg_res_add_group = await db.query(
-            'INSERT INTO course_' + course_id + '.group (task) VALUES (($1)) RETURNING group_id',
-            [to_task]
-        );
-        let new_group_id = pg_res_add_group.rows[0]['group_id'];
+        const newGroup = await Group.create({ task_id: newTask.id });
+
+        const new_group_id = newGroup.group_id;
 
         // Create a new project on gitlab for the new group
         let add_project = await gitlab_create_group_and_project_no_user(
@@ -618,23 +671,22 @@ async function copy_groups(course_id, from_task, to_task) {
             new_group_id,
             to_task
         );
+
         if (add_project['success'] === false) {
             results.push({ group_id: old_group_id, code: add_project['code'] });
         } else {
             for (let user of group_user[old_group_id]) {
                 // Add user to the new group in db
-                let err_add_user,
-                    pg_res_add_user = await db.query(
-                        'INSERT INTO course_' +
-                            course_id +
-                            ".group_user (task, username, group_id, status) VALUES (($1), ($2), ($3), 'confirmed')",
-                        [to_task, user, new_group_id]
-                    );
-                if (err_add_user) {
-                    console.log('User ' + user + 'is already in a group');
-                } else {
+                try {
+                    await GroupUser.create({
+                        task_id: newTask.id,
+                        username: user,
+                        group_id: new_group_id,
+                        status: GROUP_STATUS.confirmed
+                    });
+
                     // Add user to the new project on gitlab
-                    add_user = await gitlab_add_user_with_gitlab_group_id(
+                    const add_user = await gitlab_add_user_with_gitlab_group_id(
                         add_project['gitlab_group_id'],
                         '',
                         user
@@ -642,6 +694,8 @@ async function copy_groups(course_id, from_task, to_task) {
                     if (add_user['success'] === false) {
                         results.push({ username: user, code: add_user['code'] });
                     }
+                } catch (e) {
+                    console.log('User ' + user + 'is already in a group');
                 }
             }
         }
@@ -653,6 +707,10 @@ async function copy_groups(course_id, from_task, to_task) {
 async function format_marks_one_task(json, course_id, task, total) {
     let marks = {};
     let all_criteria = await get_criteria(course_id, task);
+
+    if (all_criteria === null) {
+        return { "error": "Task not found"};
+    }
 
     if (Object.keys(all_criteria).length === 0) {
         return {};
@@ -876,27 +934,27 @@ async function format_marks_all_tasks_csv(json, course_id, res, total) {
     });
 }
 
-async function get_max_user_tokens(course_id, username) {
-    let pg_res_default_tokens = await db.query(
-        'SELECT default_token_count, token_length FROM course WHERE course_id = ($1)',
-        [course_id]
-    );
-    let pg_res_user_tokens = await db.query(
-        'SELECT token_count FROM course_' + course_id + '.user WHERE username = ($1)',
-        [username]
-    );
-    if (pg_res_default_tokens.rowCount !== 1 || pg_res_user_tokens.rowCount !== 1) {
+async function get_max_user_tokens(course_id, user, group_id) {
+    const course = await Course.findOne({
+        where: {
+            course_id
+        }
+    })
+    const default_token_count = course.default_token_count;
+    const default_token_length = course.token_length;
+
+    if (!default_token_count || !user.token_count) {
         return { token_count: -1, token_length: -1 };
     }
 
     let token_count = -1;
-    if (pg_res_user_tokens.rows[0]['token_count'] !== -1) {
-        token_count = pg_res_user_tokens.rows[0]['token_count'];
+    if (user.token_count !== -1) {
+        token_count = user.token_count;
     } else {
-        token_count = pg_res_default_tokens.rows[0]['default_token_count'];
+        token_count = default_token_count;
     }
 
-    let token_length = pg_res_default_tokens.rows[0]['token_length'];
+    let token_length = default_token_length;
 
     return {
         token_count: token_count,
@@ -905,27 +963,26 @@ async function get_max_user_tokens(course_id, username) {
     };
 }
 
-async function get_user_token_usage(course_id, username) {
-    let groups = [];
-    let usage = {};
+async function get_user_token_usage(course_id, user, task) {
+    let username = user.username;
 
-    let pg_res_groups = await db.query(
-        'SELECT group_id FROM course_' + course_id + '.group_user WHERE username = ($1)',
-        [username]
-    );
-    for (let row of pg_res_groups.rows) {
-        groups.push(row['group_id']);
-    }
+    const groupUserModels = await GroupUser.findAll({
+        where: { username }
+    });
+    const groupIds = groupUserModels.map(groupUser => groupUser.group_id);
 
-    let pg_res_submission = await db.query(
-        'SELECT * FROM course_' + course_id + '.submission WHERE group_id = ANY($1::int[])',
-        [groups]
-    );
-    for (let row of pg_res_submission.rows) {
-        usage[row['task']] = row['token_used'];
-    }
+    const submissionModels = await Submission.findAll({
+        where: { group_id: groupIds },
+        attributes: ['commit_id', 'token_used']
+    });
+    let totalTokenUsed = 0;
 
-    return usage;
+    await submissionModels.forEach(submission => {
+        if (submission.task !== task){
+            totalTokenUsed += submission.token_used;
+        }
+    });
+    return totalTokenUsed;
 }
 
 async function get_due_date(course_id, group_id) {
@@ -935,73 +992,61 @@ async function get_due_date(course_id, group_id) {
     let due_date_with_extension = null;
     let due_date_with_extension_and_token = null;
 
-    // Get task
-    let pg_res_group = await db.query(
-        'SELECT task, extension FROM course_' + course_id + '.group WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res_group.rowCount !== 1) {
+    const group = await Group.findOne({
+        where: {
+            group_id: group_id
+        },
+        attributes: ['task_id', 'extension']
+    })
+    
+    if (!group){
         return { due_date: null };
     }
-    let task = pg_res_group.rows[0]['task'];
+    const task_id = group.task_id;
 
-    // Get original due date
-    let pg_res_due_date = await db.query(
-        'SELECT due_date, max_token, task_group_id FROM course_' +
-            course_id +
-            '.task WHERE task = ($1)',
-        [task]
-    );
-    if (pg_res_due_date.rowCount !== 1) {
+    const task = await Task.findOne({
+        where: {
+            id: task_id
+        }
+    })
+    if (!task.due_date){
         return { due_date: null };
     }
-    due_date = moment(pg_res_due_date.rows[0]['due_date']).tz('America/Toronto');
+    due_date = moment(task.due_date).tz('America/Toronto');
 
     // Apply group extension to due date if applicable
     let group_extension = 0;
-    if (pg_res_group.rows[0]['extension'] !== null) {
-        group_extension = pg_res_group.rows[0]['extension'];
+    if (group.extension !== null) {
+        group_extension = group.extension;
     }
-    due_date_with_extension = moment(pg_res_due_date.rows[0]['due_date'])
+    due_date_with_extension = moment(task.due_date)
         .tz('America/Toronto')
         .add(group_extension, 'minutes');
 
     // Get max token of the task group if applicable
     let max_task_group_token = Infinity;
-    let task_group_id = pg_res_due_date.rows[0]['task_group_id'];
+    let task_group_id = task.task_group_id;
     if (task_group_id !== null) {
-        let pg_res_task_group = await db.query(
-            'SELECT max_token FROM course_' + course_id + '.task_group WHERE task_group_id = ($1)',
-            [task_group_id]
-        );
-        if (pg_res_task_group.rowCount !== 1) {
+        const task_group = await TaskGroup.findOne({
+            where: {
+                task_group_id
+            }
+        })
+
+        if (!task_group) {
             return { due_date: null };
         }
-        max_task_group_token = pg_res_task_group.rows[0]['max_token'];
+        max_task_group_token = task_group.max_token;
     }
 
-    // Get all tasks that are in the task group
-    let task_group_all_tasks = [];
-    if (task_group_id !== null) {
-        let pg_res_task_group_all_tasks = await db.query(
-            'SELECT task FROM course_' + course_id + '.task WHERE task_group_id = ($1)',
-            [task_group_id]
-        );
-        if (pg_res_task_group_all_tasks.rowCount < 1) {
-            return { due_date: null };
+    // Get all members that are in the group
+    const members = await GroupUser.findAll({
+        where: {
+            group_id
         }
-        for (let row of pg_res_task_group_all_tasks.rows) {
-            task_group_all_tasks.push(row['task']);
-        }
-    }
+    })
 
-    // Get all group members
-    let members = [];
-    let pg_res_members = await db.query(
-        'SELECT username FROM course_' + course_id + '.group_user WHERE group_id = ($1)',
-        [group_id]
-    );
-    if (pg_res_members.rowCount < 1) {
+    if (!members) {
         return {
             task: task,
             due_date: due_date.format('YYYY-MM-DD HH:mm:ss'),
@@ -1011,32 +1056,30 @@ async function get_due_date(course_id, group_id) {
             token_length: -1
         };
     }
-    for (let row of pg_res_members.rows) {
-        members.push(row['username']);
+
+    if (task_group_id !== null) {
+        const task_group_all_tasks = await TaskGroup.findAll({
+            where: {
+                task_group_id
+            }
+        })
+        if (task_group_all_tasks.length < 1) {
+            return { due_date: null };
+        }
     }
 
-    // Get how long the task can be extended by token
     for (let user of members) {
         // Get max token the task allows
-        let max_task_token = pg_res_due_date.rows[0]['max_token'];
+        let max_task_token = task.max_token;
 
         // Get max token the user has
-        let max_user_token_data = await get_max_user_tokens(course_id, user);
+        let max_user_token_data = await get_max_user_tokens(course_id, user, group_id);
         let max_user_token = max_user_token_data['token_count'];
         token_length = max_user_token_data['token_length'];
 
         // Get user's token usage
-        let used_user_token = 0;
         let used_task_group_token = 0;
-        let usage = await get_user_token_usage(course_id, user);
-        for (let item in usage) {
-            if (item !== task) {
-                used_user_token += usage[item];
-                if (task_group_all_tasks.includes(item)) {
-                    used_task_group_token += usage[item];
-                }
-            }
-        }
+        let used_user_token = await get_user_token_usage(course_id, user, task);
 
         max_token = Math.min(
             max_token,
@@ -1062,9 +1105,9 @@ async function get_due_date(course_id, group_id) {
 
 async function get_submission_before_due_date(course_id, group_id) {
     let data = await gitlab_get_commits(course_id, group_id);
-    let commit_commits = data['commit']; // the commit history
-    let push_commits = data['push']; // the time when the commits were pushed (in case they modified the commit time manually)
 
+    let commit_commits = data['commit'];
+    let push_commits = data['push'];
     let due_date_data = await get_due_date(course_id, group_id);
     let task = due_date_data['task'];
     let due_date = due_date_data['due_date'];
@@ -1087,7 +1130,6 @@ async function get_submission_before_due_date(course_id, group_id) {
     if (moment().isBefore(moment.tz(due_date_with_extension_and_token, 'America/Toronto'))) {
         before_due_date_with_extension_and_token = true;
     }
-
     // Get the last commit before due date
     for (let commit of commit_commits) {
         if (
@@ -1142,7 +1184,6 @@ async function get_submission_before_due_date(course_id, group_id) {
             token_used = Math.ceil(minutes_past_due_date_with_extension / token_length);
         }
     }
-
     return {
         group_id,
         task,
@@ -1161,217 +1202,214 @@ async function get_submission_before_due_date(course_id, group_id) {
 }
 
 async function collect_one_submission(course_id, group_id, overwrite) {
-    let task = await get_group_task(course_id, group_id);
-    if (task === '') {
-        return {
-            message: "The group id doesn't exist.",
-            group_id: group_id,
-            code: 'group_not_exist'
-        };
-    }
+    try {
+        let task = await get_group_task(course_id, group_id);
+        if (task === '') {
+            return {
+                message: "The group id doesn't exist.",
+                group_id: group_id,
+                code: 'group_not_exist'
+            };
+        }
 
-    if (!overwrite) {
-        let sql_check_submission =
-            'SELECT * FROM course_' +
-            course_id +
-            '.submission WHERE task = ($1) AND group_id = ($2)';
-        let sql_check_submission_data = [task, group_id];
-
-        let err_check_submission,
-            pg_res_check_submission = await db.query(
-                sql_check_submission,
-                sql_check_submission_data
-            );
-        if (err_check_submission) {
+        if (!overwrite) {
+            const existingSubmission = await Submission.findOne({
+                where: { task, group_id },
+                attributes: { exclude: ['createdAt', 'updatedAt'] }
+            });
+            if (existingSubmission) {
+                return {
+                    message:
+                        'The new submission is not collected as an old submission is found and overwrite is false.',
+                    group_id: group_id,
+                    code: 'submission_exists',
+                    submission: existingSubmission.toJSON()
+                };
+            }
             return {
                 message: 'Unknown error.',
                 group_id: group_id,
                 code: 'unknown_error',
                 submission: submission_data
             };
-        } else if (pg_res_check_submission.rowCount >= 1) {
+        }
+        let submission_data = await get_submission_before_due_date(course_id, group_id);
+
+        if (submission_data['due_date'] === null) {
             return {
-                message:
-                    'The new submission is not collected as an old submission is found and overwrite is false.',
+                message: 'Unknown error.',
                 group_id: group_id,
-                code: 'submission_exists',
-                submission: pg_res_check_submission.rows[0]
+                code: 'unknown_error',
+                submission: submission_data
             };
         }
-    }
+        if (submission_data['before_due_date_with_extension_and_token'] === true) {
+            return {
+                message: "Due date hasn't passed for this group.",
+                group_id: group_id,
+                code: 'before_due_date',
+                submission: submission_data
+            };
+        }
+        if (submission_data['commit_id'] === null) {
+            return {
+                message: 'No commit is found for this group.',
+                group_id: group_id,
+                code: 'no_commit',
+                submission: submission_data
+            };
+        }
 
-    let submission_data = await get_submission_before_due_date(course_id, group_id);
-    if (submission_data['due_date'] === null) {
+        const submission = await Submission.findOne({
+            where: { task, group_id },
+            attributes: ['submission_id'] // Only select the submission_id for efficiency
+        });
+        if (submission) {
+            // Submission already exists, handle accordingly
+            return {
+                message: 'The new submission is not collected as an old submission is found and overwrite is false.',
+                group_id: group_id,
+                code: 'submission_exists',
+                submission: submission.toJSON()
+            };
+        } else {
+            // Submission does not exist, create a new one
+            const newSubmission = await Submission.create({
+                task: task,
+                group_id: group_id,
+                commit_id: submission_data['commit_id'],
+                token_used: submission_data['token_used'],
+            });
+
+            return {
+                message: 'The new submission is collected.',
+                group_id: group_id,
+                code: 'submission_collected',
+                submission: newSubmission.toJSON()
+            };
+        }
+
+    } catch (error) {
+        console.error("Error collecting submission:", error);
         return {
             message: 'Unknown error.',
             group_id: group_id,
             code: 'unknown_error',
-            submission: submission_data
+            submission: null
         };
     }
-    if (submission_data['before_due_date_with_extension_and_token'] === true) {
-        return {
-            message: "Due date hasn't passed for this group.",
-            group_id: group_id,
-            code: 'before_due_date',
-            submission: submission_data
-        };
-    }
-    if (submission_data['commit_id'] === null) {
-        return {
-            message: 'No commit is found for this group.',
-            group_id: group_id,
-            code: 'no_commit',
-            submission: submission_data
-        };
-    }
+}
+function aggregateResults(results) {
+    const stats = {
+        collected_count: 0,
+        empty_count: 0,
+        ignore_count: 0,
+        before_due_date_count: 0,
+        error_count: 0,
+        collected_groups: [],
+        empty_groups: [],
+        ignore_groups: [],
+        before_due_date_groups: [],
+        error_groups: []
+    };
 
-    let sql_add_submission =
-        'INSERT INTO course_' +
-        course_id +
-        '.submission (task, group_id, commit_id, token_used) VALUES (($1), ($2), ($3), ($4))';
-    let sql_add_submission_data = [
-        submission_data['task'],
-        group_id,
-        submission_data['commit_id'],
-        submission_data['token_used']
-    ];
+    results.forEach(result => {
+        const { code, group_id } = result;
+        if (code === 'submission_collected') {
+            stats.collected_count += 1;
+            stats.collected_groups.push(group_id);
+        } else if (code === 'submission_exists') {
+            stats.ignore_count += 1;
+            stats.ignore_groups.push(group_id);
+        } else if (code === 'no_commit') {
+            stats.empty_count += 1;
+            stats.empty_groups.push(group_id);
+        } else if (code === 'before_due_date') {
+            stats.before_due_date_count += 1;
+            stats.before_due_date_groups.push(group_id);
+        } else if (code === 'unknown_error') {
+            stats.error_count += 1;
+            stats.error_groups.push(group_id);
+        }
+    });
 
-    if (overwrite) {
-        sql_add_submission +=
-            ' ON CONFLICT (group_id) DO UPDATE SET commit_id = EXCLUDED.commit_id, token_used = EXCLUDED.token_used';
-    } else {
-        sql_add_submission += ' ON CONFLICT (group_id) DO NOTHING';
-    }
-
-    let err_add_submission,
-        pg_res_add_submission = await db.query(sql_add_submission, sql_add_submission_data);
-    if (err_add_submission) {
-        return {
-            message: 'Unknown error.',
-            group_id: group_id,
-            code: 'unknown_error',
-            submission: submission_data
-        };
-    } else if (pg_res_add_submission.rowCount === 0) {
-        return {
-            message:
-                'The new submission is not collected as an old submission is found and overwrite is false.',
-            group_id: group_id,
-            code: 'submission_exists',
-            submission: submission_data
-        };
-    } else {
-        return {
-            message: 'The new submission is collected.',
-            group_id: group_id,
-            code: 'submission_collected',
-            submission: submission_data
-        };
-    }
+    return stats;
 }
 
 async function collect_all_submissions(course_id, task, overwrite) {
-    collect_processes = [];
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' +
-            course_id +
-            '.group_user WHERE task = ($1) GROUP BY group_id HAVING COUNT(username) >= 1',
-        [task]
-    );
-    for (let row of pg_res.rows) {
-        collect_processes.push(collect_one_submission(course_id, row['group_id'], overwrite));
+    try {
+        const taskModel = await Task.findOne({
+            where: { course_id, task }
+        });
+
+        const groupIds = await GroupUser.findAll({
+            where: { task_id: taskModel.id },
+            attributes: ['group_id'],
+            group: ['group_id'],
+            having: sequelize.where(sequelize.fn('count', sequelize.col('username')), '>=', 1)
+        });
+
+        const collectProcesses = groupIds.map(group => collect_one_submission(course_id, group.group_id, overwrite));
+
+        const results = await Promise.all(collectProcesses);
+        return aggregateResults(results);
+
+    } catch (error) {
+        console.error("Error collecting all submissions:", error);
+        throw error;
     }
-
-    let results = await Promise.all(collect_processes);
-
-    let collected_count = 0;
-    let empty_count = 0;
-    let ignore_count = 0;
-    let before_due_date_count = 0;
-    let error_count = 0;
-    let collected_groups = [];
-    let empty_groups = [];
-    let ignore_groups = [];
-    let before_due_date_groups = [];
-    let error_groups = [];
-
-    for (let result of results) {
-        let code = result['code'];
-        let group_id = result['group_id'];
-
-        if (code === 'submission_collected') {
-            collected_count += 1;
-            collected_groups.push(group_id);
-        } else if (code === 'submission_exists') {
-            ignore_count += 1;
-            ignore_groups.push(group_id);
-        } else if (code === 'no_commit') {
-            empty_count += 1;
-            empty_groups.push(group_id);
-        } else if (code === 'before_due_date') {
-            before_due_date_count += 1;
-            before_due_date_groups.push(group_id);
-        } else if (code === 'unknown_error') {
-            error_count += 1;
-            error_groups.push(group_id);
-        }
-    }
-
-    return {
-        collected_count,
-        empty_count,
-        ignore_count,
-        before_due_date_count,
-        error_count,
-        collected_groups,
-        empty_groups,
-        ignore_groups,
-        before_due_date_groups,
-        error_groups
-    };
 }
 
 async function download_all_submissions(course_id, task) {
-    groups = [];
-    let pg_res = await db.query(
-        'SELECT group_id FROM course_' + course_id + '.group WHERE task = ($1)',
-        [task]
-    );
-    for (let row of pg_res.rows) {
-        let group_id = row['group_id'];
-        let pg_res_gitlab_url = await db.query(
-            'SELECT gitlab_project_id, gitlab_url FROM course_' +
-                course_id +
-                '.group WHERE group_id = ($1)',
-            [group_id]
-        );
-        let pg_res_commit_id = await db.query(
-            'SELECT commit_id FROM course_' + course_id + '.submission WHERE group_id = ($1)',
-            [group_id]
-        );
+    try {
+        // Fetch groups first
+        const groups = await Group.findAll({
+            where: { task_id: task },
+            attributes: ['group_id', 'gitlab_project_id', 'gitlab_url']
+        });
 
-        let gitlab_url = pg_res_gitlab_url.rows[0]['gitlab_url'];
-        let gitlab_project_id = pg_res_gitlab_url.rows[0]['gitlab_project_id'];
-        if (gitlab_url !== null && gitlab_project_id !== null) {
-            let regex = gitlab_url.match(/https:\/\/([^\/]*)\/(.*)/);
-            let ssh_clone_url = 'git@' + regex[1] + ':' + regex[2] + '.git';
 
-            if (pg_res_gitlab_url.rowCount === 1 && pg_res_commit_id.rowCount === 1) {
-                groups.push({
-                    group_name: 'group_' + group_id,
-                    group_id: group_id,
-                    gitlab_project_id: gitlab_project_id,
-                    gitlab_url: gitlab_url,
-                    https_clone_url: gitlab_url + '.git',
-                    ssh_clone_url: ssh_clone_url,
-                    commit_id: pg_res_commit_id.rows[0]['commit_id']
+        // Initialize an array to store the formatted groups
+        const formattedGroups = [];
+
+
+        for (const group of groups) {
+            const { group_id, gitlab_project_id, gitlab_url } = group;
+
+            // Fetch submissions for the current group
+            const submissions = await Submission.findAll({
+                where: { group_id },
+                attributes: ['commit_id']
+            });
+
+            // Check if submissions exist for the group
+            if (submissions.length > 0) {
+                // Extract the commit_id from the first submission
+                const commit_id = submissions[0].commit_id;
+
+                // Construct SSH clone URL
+                const regex = gitlab_url.match(/https:\/\/([^\/]*)\/(.*)/);
+                const ssh_clone_url = `git@${regex[1]}:${regex[2]}.git`;
+
+                // Add the formatted group to the array
+                formattedGroups.push({
+                    group_name: `group_${group_id}`,
+                    group_id,
+                    gitlab_project_id,
+                    gitlab_url,
+                    https_clone_url: `${gitlab_url}.git`,
+                    ssh_clone_url,
+                    commit_id
                 });
             }
         }
-    }
+        // Remove any undefined entries
+        return formattedGroups;
 
-    return groups;
+    } catch (error) {
+        console.error('Error retrieving submissions:', error);
+        throw new Error('Failed to retrieve submissions');
+    }
 }
 
 module.exports = {

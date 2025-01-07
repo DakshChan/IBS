@@ -3,7 +3,7 @@ const router = express.Router();
 const helpers = require("../../../utilities/helpers");
 
 router.post("/", (req, res) => {
-	if (res.locals["task"] === "") {
+	if (req.body["task"] === "") {
 		res.status(400).json({ message: "The task is missing or invalid." });
 		return;
 	}
@@ -17,7 +17,6 @@ router.post("/", (req, res) => {
 	} else {
 		var overwrite = false;
 	}
-
 	helpers.collect_all_submissions(res.locals["course_id"], res.locals["task"], overwrite).then(result => {
 		res.status(200).json({ result: result });
 	});

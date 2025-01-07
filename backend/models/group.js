@@ -5,9 +5,11 @@ const sequelize = require('../helpers/database');
 class Group extends Model {
   static associate(models) {
     Group.belongsTo(models.Task, {
+      foreignKey: 'task_id',
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT'
     }); // foreignKey will default to the primary key of Task model
+    Group.hasMany(models.Submission, { foreignKey: 'group_id' });
   }
 }
 
@@ -40,6 +42,7 @@ Group.init({
 }, {
   sequelize,
   modelName: 'Group',
+  tableName: 'groups'
 });
 
 

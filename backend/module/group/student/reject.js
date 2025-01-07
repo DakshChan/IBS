@@ -1,30 +1,50 @@
+// routes/group/rejectGroupInvite.js
+
 const express = require("express");
 const router = express.Router();
-const client = require("../../../setup/db");
-const helpers = require("../../../utilities/helpers");
+const { GroupUser, Task } = require("../../../models");
 
-router.delete("/", (req, res) => {
-	if (res.locals["change_group"] === false || (res.locals["interview_group"] !== "" && res.locals["interview_group"] !== null)) {
-		res.status(400).json({ message: "Changing group is not allowed for this task." });
-		return;
-	}
-	if (res.locals["task"] === "") {
-		res.status(400).json({ message: "The task is missing or invalid." });
-		return;
-	}
+router.delete("/", async (req, res) => {
+	try {
+		const { username, task, course_id } = res.locals;
 
-	let sql_reject = "DELETE FROM course_" + res.locals["course_id"] + ".group_user WHERE username = ($1) AND task = ($2) AND status = 'pending'";
 
-	client.query(sql_reject, [res.locals["username"], res.locals["task"]], (err, pgRes) => {
-		if (err) {
-			res.status(404).json({ message: "Unknown error." });
-			console.log(err);
-		} else if (pgRes.rowCount === 1) {
-			res.status(200).json({ message: "You have rejected the invitation." });
-		} else if (pgRes.rowCount === 0) {
-			res.status(400).json({ message: "Invitation doesn't exist." });
+		// Check if changing group is allowed
+		if (res.locals["change_group"] === false || (res.locals["interview_group"] !== "" && res.locals["interview_group"] !== null)) {
+			res.status(400).json({ message: "Changing group is not allowed for this task." });
+			return;
 		}
-	});
-})
+
+		// Check if task is missing or invalid
+		if (!task) {
+			return res.status(400).json({ message: "The task is missing or invalid." });
+		}
+
+		// Find the task ID based on the provided criteria
+		const taskDetails = await Task.findOne({
+			where: { course_id, task }
+		});
+
+		if (!taskDetails) {
+			return res.status(400).json({ message: "The task is missing or invalid." });
+		}
+
+		const taskId = taskDetails.id;
+
+		// Delete the pending invitation from the database
+		const deletedRows = await GroupUser.destroy({
+			where: { username, task_id: taskId, status: 'pending' }
+		});
+
+		if (deletedRows === 1) {
+			return res.status(200).json({ message: "You have rejected the invitation." });
+		} else {
+			return res.status(400).json({ message: "Invitation doesn't exist." });
+		}
+	} catch (error) {
+		console.error(error);
+		return res.status(500).json({ message: "Unknown error." });
+	}
+});
 
 module.exports = router;

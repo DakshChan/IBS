@@ -143,7 +143,7 @@ describe('Get a specific students mark as Instructor Endpoint', () => {
             .query(markListPayload[1])
             .end((err, res) => {
                 expect(res).to.have.status(200);
-                expect(res.body.marks).to.be.empty;
+                expect(res.body.marks).to.be.empty
                 done();
             });
     });
@@ -184,7 +184,7 @@ describe('Get a specific students mark as Instructor Endpoint', () => {
             .query(badPayload)
             .end((err, res) => {
                 expect(res).to.have.status(404);
-                expect(res.body).to.have.property('message', 'Unknown error.');
+                expect(res.body).to.have.property('message', 'Task not found');
                 done();
             });
     });

@@ -161,7 +161,7 @@ describe('Get Mark as Instructor Endpoint', () => {
             .query(badPayload)
             .end((err, res) => {
                 expect(res).to.have.status(404);
-                expect(res.body).to.have.property('message', 'Unknown error.');
+                expect(res.body).to.have.property('message', 'Task not found');
                 done();
             });
     });
