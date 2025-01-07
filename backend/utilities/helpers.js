@@ -15,8 +15,6 @@ const sequelize = require('../helpers/database');
 
 const JWT_EXPIRY = '120m';
 
-const { Group } = require('../models');
-
 // A few helper functions used the old gitlab helpers
 const gitlab_get_user_id = VersionControlSystem.get_user_id;
 const gitlab_create_group_and_project_no_user = VersionControlSystem.create_group_and_project_no_user;
