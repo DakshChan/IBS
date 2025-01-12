@@ -6,7 +6,9 @@ const json2csv = require('json2csv');
 const axios = require('axios');
 const transporter = require('../setup/email');
 const db = require('../setup/db');
-const { Task, TaskGroup, GroupUser, Group, User, Course, Submission } = require("../models");
+
+const { Op } = require('sequelize');
+const { Task, Criteria, TaskGroup, GroupUser, Group, User, Course, Submission } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
 const { GROUP_STATUS } = require("../helpers/constants");
@@ -14,8 +16,6 @@ const { GROUP_STATUS } = require("../helpers/constants");
 const sequelize = require('../helpers/database');
 
 const JWT_EXPIRY = '120m';
-
-const { Group } = require('../models');
 
 // A few helper functions used the old gitlab helpers
 const gitlab_get_user_id = VersionControlSystem.get_user_id;
@@ -183,116 +183,90 @@ async function task_validate(course_id, task, student) {
     }
 }
 
-function interview_data_filter(query, start_data_id, others_interview, username) {
-    let filter = '';
-    let data = [];
-    let data_id = start_data_id;
+function interview_data_filter(query, others_interview, username) {
+    let filter = {};
 
-    if ('interview_id' in query && !number_validate(query['interview_id'])) {
-        filter = filter + ' AND interview_id = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['interview_id']);
+    if ('id' in query && !number_validate(query['id'])) {
+        filter['id'] = query['id'];
     }
+
     if ('booked' in query && !boolean_validate(query['booked'])) {
         if (query['booked'] === 'true' || query['booked'] === true) {
-            filter = filter + ' AND group_id IS NOT NULL';
+            filter['group_id'] = { [Op.not]: null };
         }
     }
+
     if ('time' in query && !time_validate(query['time'])) {
-        filter = filter + ' AND time = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['time'] + ' America/Toronto');
+        filter['time'] = query['time'] + ' America/Toronto';
     }
+    
     if ('date' in query && !date_validate(query['date'])) {
-        filter =
-            filter +
-            ' AND time BETWEEN ($' +
-            data_id +
-            ') AND ($' +
-            data_id +
-            ") + INTERVAL '24 HOURS'";
-        data_id += 1;
-        data.push(query['date'] + ' America/Toronto');
+        const startDate = query['date'] + ' 00:00:00 America/Toronto';
+        const endDate = query['date'] + ' 23:59:59 America/Toronto';
+        filter['time'] = {
+            [Op.between]: [startDate, endDate]
+        };
     }
+
     if ('group_id' in query && !number_validate(query['group_id'])) {
-        filter = filter + ' AND group_id = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['group_id']);
+        filter['group_id'] = query['group_id'];
     }
     if ('length' in query && !number_validate(query['length'])) {
-        filter = filter + ' AND length = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['length']);
+        filter['length'] = query['length'];
     }
     if ('location' in query && !string_validate(query['location'])) {
-        filter = filter + ' AND location = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['location']);
+        filter['location'] = query['location'];
     }
     if ('note' in query && !string_validate(query['note'])) {
-        filter = filter + ' AND note = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['note']);
+        filter['note'] = query['note'];
     }
     if ('cancelled' in query && !boolean_validate(query['cancelled'])) {
-        filter = filter + ' AND cancelled = ($' + data_id + ')';
-        data_id += 1;
-        data.push(query['cancelled']);
+        filter['cancelled'] = query['cancelled'];
     }
 
     if (others_interview && 'host' in query && !name_validate(query['host'])) {
         // potentially return other's interview
         if (query['host'] !== 'all') {
-            filter = filter + ' AND host = ($' + data_id + ')';
-            data_id += 1;
-            data.push(query['host']);
+            filter['host'] = query['host'];
         }
     } else {
         // restrict to user's interview
-        filter = filter + ' AND host = ($' + data_id + ')';
-        data_id += 1;
-        data.push(username);
+        filter['host'] = username;
     }
 
-    return { filter: filter, data: data, data_id: data_id };
+    return filter;
 }
 
-function interview_data_set_new(query, start_data_id) {
-    let set = '';
+function interview_data_set_new(query) {
+
+    let set = {};
     let data = [];
-    let data_id = start_data_id;
 
     if ('set_time' in query && !time_validate(query['set_time'])) {
-        set = set + ' time = ($' + data_id + '),';
-        data_id += 1;
+        set['time'] = query['set_time'] + ' America/Toronto';
         data.push(query['set_time'] + ' America/Toronto');
     }
     if ('set_group_id' in query && !number_validate(query['set_group_id'])) {
-        set = set + ' group_id = ($' + data_id + '),';
-        data_id += 1;
+        set['group_id'] = query['set_group_id'];
         data.push(query['set_group_id']);
     }
     if ('set_length' in query && !number_validate(query['set_length'])) {
-        set = set + ' length = ($' + data_id + '),';
-        data_id += 1;
+        set['length'] = query['set_length'];
         data.push(query['set_length']);
     }
     if ('set_location' in query && !string_validate(query['set_location'])) {
-        set = set + ' location = ($' + data_id + '),';
-        data_id += 1;
+        set['location'] = query['set_location'];
         data.push(query['set_location']);
     }
     if ('set_note' in query && !string_validate(query['set_note'])) {
-        set = set + ' note = ($' + data_id + '),';
-        data_id += 1;
+        set['note'] = query['set_note'];
         data.push(query['set_note']);
     }
     if ('set_cancelled' in query && !boolean_validate(query['set_cancelled'])) {
-        set = set + ' cancelled = ($' + data_id + '),';
-        data_id += 1;
+        set['cancelled'] = query['set_cancelled'];
         data.push(query['set_cancelled']);
     }
-    return { set: set, data: data, data_id: data_id };
+    return set;
 }
 
 function send_email(email, subject, body) {
