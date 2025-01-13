@@ -2,39 +2,51 @@ const moment = require('moment');
 require('moment-timezone');
 const express = require("express");
 const router = express.Router();
-const { Interview } = require("../../../models");
+const { Interview, Task } = require("../../../models");
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 const sequelize = require('../../../helpers/database');
 
+/**
+ * Obtain all interviews for a course_id and task_id
+ */
 
-router.get("/", async(req, res) => {
+router.get("/", async (req, res) => {
     try {
-        if (res.locals["task"] === "") {
-            res.status(400).json({ message: "The task is missing or invalid." });
-            return;
+
+        const task = res.locals["task"];
+
+        if (task === "") {
+            return res.status(400).json({ message: "The task is missing or invalid." });
         }
 
-        let filter = helpers.interview_data_filter(req.query, true, res.locals["username"]);
+        // if (res.locals["task"] === "") {
+        //     res.status(400).json({ message: "The task is missing or invalid." });
+        //     return;
+        // }
 
-        const interviews = await Interview.findAll({
-            attributes: [
-                'id',
-                'task_name',
-                'time',
-                'host',
-                'group_id',
-                'length',
-                'location',
-                'note',
-                'cancelled'
-            ],
-            where: filter,
-            order: [
-                ['time', 'ASC']
-            ]
-        });
-        
+        // let filter = helpers.interview_data_filter(req.query, true, res.locals["username"]); -> Doesnt seem like there are filters for this based on FE code
+
+        // const interviews = await Interview.findAll({
+        //     attributes: [
+        //         'id',
+        //         'task_name',
+        //         'time',
+        //         'host',
+        //         'group_id',
+        //         'length',
+        //         'location',
+        //         'note',
+        //         'cancelled'
+        //     ],
+        //     where: filter,
+        //     order: [
+        //         ['time', 'ASC']
+        //     ]
+        // });
+
+        const interviews = await Interview.findAll({ where: { task_id: task }, order: [['time', 'ASC']] })
+
         // Format timestamps with time zones here
         interviews.forEach(interview => {
             interview.dataValues.length = parseInt(interview.length); // Workaround

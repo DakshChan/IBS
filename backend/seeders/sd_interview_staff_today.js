@@ -153,34 +153,36 @@ module.exports = {
             }
         ]);
 
-        const today = new Date();
+        const todayUTC = moment().utc(); // since in schedule time and date stored as UTC
+
         // Seed interviews
         await queryInterface.bulkInsert('interviews', [
             {
-                task_name: 'Assignment-1',
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: 1,
                 length: 60,
                 location: 'Online',
                 note: 'zoom.com/meeting/124',
-                time: '2024-04-15 13:30:00',
+                time: '13:30:00',
                 date: '2024-04-15',
                 createdAt: new Date(),
                 updatedAt: new Date()
             },
             {
-                task_name: 'Assignment-1',
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: 1,
                 length: 60,
                 location: 'Online',
                 note: 'zoom.com/meeting/124',
-                time: moment(today).format('YYYY-MM-DD HH:mm:ss'),
-                date: moment(today).format('YYYY-MM-DD'),
+                time: todayUTC.format('HH:mm:ss'), // UTC time
+                date: todayUTC.format('YYYY-MM-DD'), // UTC date
                 createdAt: new Date(),
                 updatedAt: new Date()
-            },
+            }
         ])
+        
 
     },
 

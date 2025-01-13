@@ -21,21 +21,21 @@ const interviewStaffScheduleEndpoint = (course_id) => {
 
 const payload = [
     {
-        task: 'Assignment-1',
+        task: 1,
         time: '2024-04-15 14:30:00',
         length: 90,
         location: 'In-person',
     },
     {
-        task: 'Assignment-4',
+        task: 4,
         time: '2024-04-16 14:30:00',
         length: 90,
         location: 'In-person',
     },
     {
-        task: 'Assignment-1',
-        time: moment.tz('2024-04-20 13:20:00', 'America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
-        length: 60,
+        task: 1,
+        time: moment.tz('2024-04-20 13:20:00', 'America/Toronto').format('YYYY-MM-DD HH:mm:ss'), // Starts 10 mins earlier
+        length: 60, // Ends at 14:20:00, overlapping with 13:30:00 - 14:30:00
         location: 'Online'
     },
     {   
@@ -47,23 +47,23 @@ const payload = [
     },
     {
         // No length
-        task: 'Assignment-1',
+        task: 1,
         time: '2024-04-21 13:30:00',
         location: 'Online'
     },
     {   // No location
-        task: 'Assignment-1',
+        task: 1,
         time: '2024-04-21 13:30:00',
         length: 60
     },
     {
         // No time
-        task: 'Assignment-1',
+        task: 1,
         length: 60,
         location: 'Online'
     },
     {
-        task: 'Assignment-1',
+        task: 1,
         time: '2024-03-15 14:30:00',
         length: 90,
         location: 'In-person',

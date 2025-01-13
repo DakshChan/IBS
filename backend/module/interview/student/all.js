@@ -3,7 +3,10 @@ const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 
-router.get("/", (req, res) => {
+const { Sequelize } = require('sequelize');
+const { Interview } = require("../../../models");
+
+router.get("/", async (req, res) => {
     if (res.locals["task"] === "") {
         res.status(400).json({ message: "The task is missing or invalid." });
         return;

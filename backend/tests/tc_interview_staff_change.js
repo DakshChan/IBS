@@ -19,9 +19,9 @@ const interviewStaffChangeEndpoint = (course_id) => {
 
 const updatedPayload = [
     {
-        task: 'Assignment-1',
+        task: 1,
         set_time: '2024-04-15 14:30:00',
-        set_group_id: 2,
+        set_group_id: 1,
         set_length: 90,
         set_location: 'In-person',
         set_note: 'New meeting location: room 101',
@@ -29,10 +29,10 @@ const updatedPayload = [
         force: false
     },
     {
-        task: 'Assignment-1'
+        task: 1
     },
     {
-        task: 'Assignment-4',
+        task: 4,
         set_time: '2024-04-15 13:30:00',
         set_group_id: 1,
         set_length: 60,

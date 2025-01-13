@@ -5,22 +5,24 @@ const helpers = require("../../../utilities/helpers");
 
 router.delete("/", async (req, res) => {
     try {
-		if (res.locals["task"] === "") {
-			res.status(400).json({ message: "The task is missing or invalid." });
-			return;
-		}
-		if (!("interview_id" in req.body) || helpers.number_validate(req.body["interview_id"])) {
-			res.status(400).json({ message: "The interview id is missing or has invalid format." });
-			return;
+        const task_id = res.locals["task"]
+        const interview_id = req.body.interview_id;
+
+        if (!task_id){
+            return res.status(400).json({ message: "The task is missing or invalid." });
+        }
+
+		if (!interview_id || helpers.number_validate(req.body["interview_id"])) {
+			return res.status(400).json({ message: "The interview id is missing or has invalid format." });
 		}
 
         // Find the interview to delete
         const interview = await Interview.findOne({
             where: {
-                task_name: res.locals["task"],
-                host: res.locals["username"],
+                task_id: task_id,
                 group_id: null, // Assuming group_id must be null
-                id: req.body["interview_id"]
+                host: res.locals["username"],
+                id: interview_id
             }
         });
 

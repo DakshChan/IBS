@@ -155,7 +155,7 @@ module.exports = {
         // Seed interviews
         await queryInterface.bulkInsert('interviews', [
             {
-                task_name: 'Assignment-1',
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: null,
                 length: 60,
@@ -167,7 +167,7 @@ module.exports = {
                 updatedAt: new Date()
             },
             {
-                task_name: 'Assignment-1',
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: 1,
                 length: 60,
@@ -179,7 +179,7 @@ module.exports = {
                 updatedAt: new Date()
             },
             {
-                task_name: 'Assignment-2',
+                task_id: 2,
                 host: 'cscinstructoruser',
                 group_id: null,
                 length: 60,

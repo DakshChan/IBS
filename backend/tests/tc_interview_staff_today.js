@@ -19,7 +19,7 @@ const interviewStaffTodayEndpoint = (course_id) => {
 
 const payload = [
     {
-        task: 'Assignment-1',
+        task: 1,
     }
 ]
 
@@ -44,7 +44,7 @@ describe('Get a specific students mark as Instructor Endpoint', () => {
                 const interviews = res.body.interviews;
     
                 // Assert interview properties
-                expect(interviews[0]).to.have.property('task_name', 'Assignment-1');
+                expect(interviews[0]).to.have.property('task_id', 1);
                 expect(interviews[0]).to.have.property('host', 'cscinstructoruser');
                 expect(interviews[0]).to.have.property('group_id', 1);
                 expect(interviews[0]).to.have.property('length', 60);
