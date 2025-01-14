@@ -5,8 +5,7 @@ const helpers = require("../../../utilities/helpers");
 
 router.put("/", async (req, res) => {
     try {
-
-        if (!res.locals["task"]) {
+        if (res.locals["task"] === "") {
             return res.status(400).json({ message: "The task is missing or invalid." });
         }
 
@@ -36,7 +35,6 @@ router.put("/", async (req, res) => {
             return res.status(200).json({ message: rowCount + " interviews have been changed." });
         }
     } catch (error) {
-        console.error(error);
         return res.status(404).json({ message: "Unknown error." });
     }
 });

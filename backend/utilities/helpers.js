@@ -153,7 +153,7 @@ function password_validate(password) {
 async function task_validate(course_id, task, student) {
 
     try {
-        let whereCondition = { task, course_id };
+        let whereCondition = { id: task, course_id: course_id };
         if (student) {
             whereCondition.hidden = false;
         }

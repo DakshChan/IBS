@@ -7,50 +7,72 @@ const { Interview } = require("../../../models");
 
 router.get("/", async (req, res) => {
     try {
-        if (res.locals["task"] === "") {
-            res.status(400).json({ message: "The task is missing or invalid." });
-            return;
+        if (!res.locals["task"]) {
+            return res.status(400).json({ message: "The task is missing or invalid." });
         }
 
-        // Get the current date in America/Toronto timezone
-        const currentDate = moment().tz("America/Toronto").format("YYYY-MM-DD");
+        // Define start and end of today in UTC
+        const startOfTodayUTC = new Date(Date.UTC(
+            new Date().getUTCFullYear(),
+            new Date().getUTCMonth(),
+            new Date().getUTCDate()
+        ));
 
-        const startDate = new Date(`${currentDate} 00:00:00`);
-        const endDate = new Date(`${currentDate} 23:59:59`)
+        const endOfTodayUTC = new Date(Date.UTC(
+            new Date().getUTCFullYear(),
+            new Date().getUTCMonth(),
+            new Date().getUTCDate(),
+            23, 59, 59, 999
+        ));
 
-        // Find interviews within the next 24 hours for the specified task and host
-        const interviews = await Interview.findAll({
+        // Fetch interviews for today (UTC range)
+        const interviewsToday = await Interview.findAll({
             where: {
-                task_name: res.locals["task"],
+                task_id: res.locals["task"],
                 host: res.locals["username"],
-                time: {
-                    [Op.between]: [
-                        startDate,
-                        endDate
-                    ]
-                }
+                date: { [Op.between]: [startOfTodayUTC, endOfTodayUTC] }
             },
-            order: [['time', 'ASC']]
+            order: [['date', 'ASC'], ['time', 'ASC']]
+        });
+
+        // Define start and end of today in Toronto time
+        const midnightToronto = moment().tz("America/Toronto").startOf("day"); // Midnight in Toronto
+        const endOfDayToronto = moment().tz("America/Toronto").endOf("day");   // 11:59:59 PM in Toronto
+
+        // Filter interviews based on Toronto time
+        const validInterviews = interviewsToday.filter(interview => {
+            // Combine date and time into an ISO8601-compliant datetime string
+            const interviewDateTimeUTC = moment.utc(`${interview.date.toISOString().split('T')[0]}T${interview.time}`);
+            const interviewDateTimeToronto = interviewDateTimeUTC.tz("America/Toronto");
+
+            // Check if the interview falls between midnight and 11:59:59 PM in Toronto
+            return interviewDateTimeToronto.isBetween(midnightToronto, endOfDayToronto, null, '[]'); // inclusive range
         });
 
         // Map the interviews to the required format
-        const formattedInterviews = interviews.map(interview => ({
-            id: interview.interview_id,
-            task_name: interview.task_name,
-            start_time: moment(interview.time).tz('America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
-            end_time: moment(interview.time).add(interview.length, 'minutes').tz('America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
-            host: interview.host,
-            group_id: interview.group_id,
-            length: parseInt(interview.length),
-            location: interview.location,
-            note: interview.note,
-            cancelled: interview.cancelled
-        }));
+        const formattedInterviews = validInterviews.map(interview => {
+            const interviewDateTimeUTC = moment.utc(`${interview.date.toISOString().split('T')[0]}T${interview.time}`);
+            const startTimeToronto = interviewDateTimeUTC.tz("America/Toronto").format("YYYY-MM-DD HH:mm:ss");
+            const endTimeToronto = interviewDateTimeUTC.add(interview.length, 'minutes').tz("America/Toronto").format("YYYY-MM-DD HH:mm:ss");
 
-        return res.status(200).json({ count: interviews.length, interviews: formattedInterviews });
+            return {
+                id: interview.id,
+                task_id: interview.task_id,
+                start_time: startTimeToronto,
+                end_time: endTimeToronto,
+                host: interview.host,
+                group_id: interview.group_id,
+                length: parseInt(interview.length),
+                location: interview.location,
+                note: interview.note,
+                cancelled: interview.cancelled
+            };
+        });
+
+        return res.status(200).json({ count: formattedInterviews.length, interviews: formattedInterviews });
     } catch (error) {
         console.error(error);
-        return res.status(404).json({ message: "Unknown error." });
+        return res.status(500).json({ message: "Unknown error." });
     }
 });
 

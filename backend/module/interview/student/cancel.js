@@ -6,7 +6,10 @@ const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 const rate_limit = require("../../../setup/rate_limit");
 
-router.delete("/", rate_limit.email_limiter, (req, res) => {
+const { Op, Sequelize } = require('sequelize');
+const { Interview } = require("../../../models");
+
+router.delete("/", rate_limit.email_limiter, async (req, res) => {
     if (res.locals["task"] === "") {
         res.status(400).json({ message: "The task is missing or invalid." });
         return;
@@ -22,36 +25,47 @@ router.delete("/", rate_limit.email_limiter, (req, res) => {
         var task = res.locals["task"];
     }
 
-    helpers.get_group_id(res.locals["course_id"], task, res.locals["username"]).then(group_id => {
-        if (group_id === -1) {
-            res.status(400).json({ message: "You need to join a group before cancelling your interview." });
-            return;
-        }
+    const group_id = await helpers.get_group_id(res.locals["course_id"], task, res.locals["username"]);
+    if (group_id === -1) {
+        res.status(400).json({ message: "You need to join a group before cancelling your interview." });
+        return;
+    }
 
-        let sql_check = "SELECT interview_id, to_char(time AT TIME ZONE 'America/Toronto', 'YYYY-MM-DD HH24:MI:SS') AS time, location FROM course_" + res.locals["course_id"] + ".interview WHERE group_id = ($1) AND task = ($2) AND cancelled = false";
-        client.query(sql_check, [group_id, res.locals["task"]], (err, pg_res_check) => {
-            if (err) {
-                res.status(404).json({ message: "Unknown error." });
-            } else {
-                if (pg_res_check.rowCount === 0) {
-                    res.status(400).json({ message: "You don't have a booked interview for " + res.locals["task"] + " yet." });
-                } else if (moment.tz(pg_res_check.rows[0]["time"], "America/Toronto").subtract(2, "hours") < moment().tz("America/Toronto")) {
-                    res.status(400).json({ message: "Your interview for " + res.locals["task"] + " at " + pg_res_check.rows[0]["time"] + " was in the past or will take place in 2 hours. You can't cancel it at this time." });
-                } else {
-                    let sql_cancel = "UPDATE course_" + res.locals["course_id"] + ".interview SET group_id = NULL WHERE interview_id = ($1)";
-                    client.query(sql_cancel, [pg_res_check.rows[0]["interview_id"]], (err, pr_res_cancel) => {
-                        if (err) {
-                            res.status(404).json({ message: "Unknown error." });
-                        } else {
-                            let message = "You have cancelled your interview for " + res.locals["task"] + " at " + pg_res_check.rows[0]["time"] + " successfully.";
-                            res.status(200).json({ message: message });
-                            helpers.send_email_by_group(res.locals["course_id"], group_id, "IBS Interview Confirmation", message);
-                        }
-                    });
-                }
-            }
-        });
-    });
+
+    const booked_interview = await Interview.findOne({
+        where: { group_id: group_id, task_id: res.locals["task"], cancelled: false }
+    })
+
+    if (!booked_interview) {
+        res.status(400).json({ message: "You don't have a booked interview for " + res.locals["task"] + " yet." });
+    }
+
+    const booked_time = moment.utc(`${booked_interview.date} ${booked_interview.time}`, 'YYYY-MM-DD HH:mm:ss');
+
+    // Get the current time and the time 2 hours from now
+    const now = moment.utc();
+    const twoHoursLater = moment.utc().add(2, 'hours');
+
+    // Check if the booked time is in the past or within the next 2 hours
+    if (booked_time.isBefore(now)) {
+        return res.status(400).json({ message: "The booked interview is in the past." });
+    } else if (booked_time.isBetween(now, twoHoursLater, null, '[)')) {
+        res.status(400).json({ message: "Your interview for " + res.locals["task"] + " at " + booked_time + " was in the past or will take place in 2 hours. You can't cancel it at this time." });
+    }
+
+    const interview_to_cancel_id = booked_interview.id;
+
+    const update = await Interview.update({
+        group_id: null
+    }, { where: { id: interview_to_cancel_id } })
+
+    if (update === 0){
+        res.status(404).json({ message: "Unknown error." });
+    }
+
+    let message = "You have cancelled your interview for " + res.locals["task"] + " at " + booked_time + " successfully.";
+    res.status(200).json({ message: message });
+    helpers.send_email_by_group(res.locals["course_id"], group_id, "IBS Interview Confirmation", message);
 })
 
 module.exports = router;

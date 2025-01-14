@@ -20,23 +20,23 @@ const interviewStaffDeleteEndpoint = (course_id) => {
 const payload = [
     {
         interview_id: 1,
-        task: 'Assignment-1',
+        task: 1,
         username: 'cscinstructoruser'
 
     },
     {
         interview_id: 2,
-        task: 'Assignment-1',
+        task: 1,
         username: 'cscinstructoruser'
     },
     {
         interview_id: 100,
-        task: 'Assignment-1',
+        task: 1,
         username: 'cscinstructoruser'
     },
     {
         interview_id: 2,
-        task: 'Assignment-1',
+        task: 1,
         username: 'cscinstructoruser'
     }
 ];

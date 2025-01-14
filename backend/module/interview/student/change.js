@@ -6,7 +6,10 @@ const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 const rate_limit = require("../../../setup/rate_limit");
 
-router.put("/", rate_limit.email_limiter, (req, res) => {
+const { Op, Sequelize } = require('sequelize');
+const { Interview } = require("../../../models");
+
+router.put("/", rate_limit.email_limiter, async (req, res) => {
     if (res.locals["task"] === "") {
         res.status(400).json({ message: "The task is missing or invalid." });
         return;
@@ -41,45 +44,68 @@ router.put("/", rate_limit.email_limiter, (req, res) => {
         var task = res.locals["task"];
     }
 
-    helpers.get_group_id(res.locals["course_id"], task, res.locals["username"]).then(group_id => {
-        if (group_id === -1) {
-            res.status(400).json({ message: "You need to join a group before changing your interview." });
-            return;
-        }
+    const group_id = await helpers.get_group_id(res.locals["course_id"], task, res.locals["username"]);
+    if (group_id === -1) {
+        res.status(400).json({ message: "You need to join a group before cancelling your interview." });
+        return;
+    }
 
-        let sql_check = "SELECT interview_id, to_char(time AT TIME ZONE 'America/Toronto', 'YYYY-MM-DD HH24:MI:SS') AS time, location FROM course_" + res.locals["course_id"] + ".interview WHERE group_id = ($1) AND task = ($2) AND cancelled = false";
-        client.query(sql_check, [group_id, res.locals["task"]], (err, pg_res_check) => {
-            if (err) {
-                res.status(404).json({ message: "Unknown error." });
-                return;
-            }
+    const booked_interview = await Interview.findOne({
+        where: { group_id: group_id, task_id: res.locals["task"], cancelled: false }
+    })
 
-            if (pg_res_check.rowCount === 0) {
-                res.status(400).json({ message: "You don't have a booked interview for " + res.locals["task"] + " yet." });
-            } else if (moment.tz(pg_res_check.rows[0]["time"], "America/Toronto").subtract(2, "hours") < moment().tz("America/Toronto")) {
-                res.status(400).json({ message: "Your existing interview for " + res.locals["task"] + " at " + pg_res_check.rows[0]["time"] + " was in the past or will take place in 2 hours. You can't book a new one at this time." });
-            } else {
-                let sql_book = "UPDATE course_" + res.locals["course_id"] + ".interview SET group_id = ($1) WHERE interview_id = (SELECT interview_id FROM course_" + res.locals["course_id"] + ".interview WHERE task = ($2) AND time = ($3) AND group_id IS NULL AND location = ($4) AND cancelled = false LIMIT 1 FOR UPDATE)";
-                client.query(sql_book, [group_id, res.locals["task"], time, location], (err, pg_res_book) => {
-                    if (err) {
-                        res.status(404).json({ message: "Unknown error." });
-                        return;
-                    }
+    if (!booked_interview) {
+        res.status(400).json({ message: "You don't have a booked interview for " + res.locals["task"] + " yet." });
+    }
 
-                    if (pg_res_book.rowCount === 0) {
-                        res.status(400).json({ message: "No available interview exists for " + res.locals["task"] + " at " + req.body["time"] + " at location " + location + ". Please choose a different time." });
-                    } else {
-                        let message = "You have changed your interview for " + res.locals["task"] + " from " + pg_res_check.rows[0]["time"] + " to " + req.body["time"] + " successfully. The new location is " + location + ".";
-                        res.status(200).json({ message: message });
-                        helpers.send_email_by_group(res.locals["course_id"], group_id, "IBS Interview Confirmation", message);
+    // Extract the date part from booked_interview.date and combine it with time
+    const dateOnly = moment.utc(booked_interview.date).format('YYYY-MM-DD'); // Extract date in 'YYYY-MM-DD' format
+    const booked_time = moment.utc(`${dateOnly} ${booked_interview.time}`, 'YYYY-MM-DD HH:mm:ss'); // Combine date and time correctly
 
-                        let sql_cancel = "UPDATE course_" + res.locals["course_id"] + ".interview SET group_id = NULL WHERE interview_id = ($1)";
-                        client.query(sql_cancel, [pg_res_check.rows[0]["interview_id"]]);
-                    }
-                });
-            }
-        });
-    });
+    // Get the current time and the time 2 hours from now
+    const now = moment.utc();
+    const twoHoursLater = moment.utc().add(2, 'hours');
+
+    // Check if the booked time is in the past or within the next 2 hours
+    if (booked_time.isBefore(now)) {
+        return res.status(400).json({ message: "The booked interview is in the past." });
+    } else if (booked_time.isBetween(now, twoHoursLater, null, '[)')) {
+        res.status(400).json({ message: "Your interview for " + res.locals["task"] + " at " + booked_time + " was in the past or will take place in 2 hours. You can't cancel it at this time." });
+    }
+
+    const freeInterview = await Interview.findOne({
+        where: { task_id: res.locals["task"], time: time, location: location, group_id: null, cancelled: false },
+        lock: true
+    })
+
+    if (!freeInterview) {
+        res.status(400).json({ message: "No available interview exists for " + res.locals["task"] + " at " + req.body["time"] + " at location " + location + ". Please choose a different time." });
+    }
+
+    // set the freeinterview to booked
+    const update = await Interview.update({
+        group_id: group_id
+    }, {
+        where: { id: freeInterview.id }
+    })
+
+    if (update === 0) {
+        res.status(404).json({ message: "Unknown error." });
+        return;
+    }
+
+    const formattedTime = booked_time.format('YYYY-MM-DD HH:mm:ss');
+
+    let message = "You have changed your interview for " + res.locals["task"] + " from " + formattedTime + " to " + req.body["time"] + " successfully. The new location is " + location + ".";
+    res.status(200).json({ message: message });
+
+    // set the old interview as unbooked now
+
+    const result = await Interview.update(
+        { group_id: null },
+        {
+            where: { id: booked_interview.id }
+        })
 })
 
 module.exports = router;

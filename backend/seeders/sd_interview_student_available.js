@@ -1,7 +1,9 @@
 'use strict';
 const bcrypt = require('bcryptjs');
+const moment = require('moment');
 
 const {ROLES} = require("../helpers/constants");
+const { DatabaseError } = require('pg');
 
 module.exports = {
     async up(queryInterface, Sequelize) {
@@ -113,7 +115,7 @@ module.exports = {
                 min_member: 0,
                 max_member: 120,
                 max_token: 4,
-                hide_interview: true,
+                hide_interview: false,
                 hide_file: false,
                 change_group: false,
                 interview_group: '1',
@@ -149,23 +151,39 @@ module.exports = {
                 gitlab_url: 'gitlab.com/project/3113',
                 createdAt: new Date(),
                 updatedAt: new Date()
+            },
+            {
+                group_id: 2,
+                task_id: 1,
+                gitlab_group_id: '1222',
+                gitlab_project_id: '3223',
+                gitlab_url: 'gitlab.com/project/3223',
+                createdAt: new Date(),
+                updatedAt: new Date()
             }
         ]);
 
-        // Seed interviews
-        await queryInterface.bulkInsert('interviews', [
+        // seed group users
+        await queryInterface.bulkInsert('group_user', [
             {
                 task_id: 1,
-                host: 'cscinstructoruser',
-                group_id: null,
-                length: 60,
-                location: 'Online',
-                note: 'zoom.com/meeting/124',
-                time: '2024-04-15 13:30:00',
-                date: '2024-04-15',
-                createdAt: new Date(),
-                updatedAt: new Date()
+                username: "cscstudentusera",
+                group_id: 1,
+                status: 'confirmed',
             },
+            {
+                task_id: 1,
+                username: "cscstudentuserb",
+                group_id: 2,
+                status: 'confirmed',
+            }
+        ]);
+
+        const today = moment.utc().format('YYYY-MM-DD'); // Today's date in UTC
+        const timeNowPlus4Hours = moment.utc().add(4, 'hours').format('HH:mm:ss'); // Current time + 4 hours in UTC
+        const timeNowPlus6Hours = moment.utc().add(6, 'hours').format('HH:mm:ss'); // Current time + 6 hours in UTC
+        // Seed interviews
+        await queryInterface.bulkInsert('interviews', [
             {
                 task_id: 1,
                 host: 'cscinstructoruser',
@@ -173,24 +191,26 @@ module.exports = {
                 length: 60,
                 location: 'Online',
                 note: 'zoom.com/meeting/124',
-                time: '2024-04-16 13:30:00',
-                date: '2024-04-15',
+                time: timeNowPlus6Hours, // Set to now + 4 hours
+                date: today, // Set to today's date
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                hide_interview: false
             },
             {
-                task_id: 2,
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: null,
                 length: 60,
                 location: 'Online',
                 note: 'zoom.com/meeting/124',
-                time: '2024-04-15 13:30:00',
-                date: '2024-04-15',
+                time: timeNowPlus4Hours, // Set to now + 4 hours
+                date: today, // Set to today's date
                 createdAt: new Date(),
-                updatedAt: new Date()
-            },
-        ]);
+                updatedAt: new Date(),
+                hide_interview: false
+            }
+        ])
 
     },
 
@@ -203,5 +223,6 @@ module.exports = {
         await queryInterface.bulkDelete('course_role', null, {});
         await queryInterface.bulkDelete('courses', null, {});
         await queryInterface.bulkDelete('user_info', null, {});
+        await queryInterface.bulkDelete('group_user', null, {});
     }
 };

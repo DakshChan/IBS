@@ -156,14 +156,20 @@ module.exports = {
         // Seed interviews
         await queryInterface.bulkInsert('interviews', [
             {
-                task_name: 'Assignment-1',
+                task_id: 1,
                 host: 'cscinstructoruser',
                 group_id: 1,
                 length: 60,
                 location: 'Online',
                 note: 'zoom.com/meeting/124',
-                time: moment.tz('2024-04-20 13:30:00', 'America/Toronto').format('YYYY-MM-DD HH:mm:ss'),
-                date: '2024-04-20',
+                time: moment
+                .tz('2024-04-20 13:30:00', 'America/Toronto')
+                .utc()
+                .format('HH:mm:ss'), // -> "17:30:00"
+              date: moment
+                .tz('2024-04-20 13:30:00', 'America/Toronto')
+                .utc()
+                .format('YYYY-MM-DD'), // still "2024-04-20" if it’s the same day in UTC,
                 createdAt: new Date(),
                 updatedAt: new Date()
             }
