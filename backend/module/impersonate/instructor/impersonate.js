@@ -3,48 +3,69 @@ const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 
-router.post("/", (req, res) => {
-  console.log("impersonate.js")
-    if (!("username" in req.body) || helpers.name_validate(req.body["username"])) {
-        res.status(400).json({ message: "The username is missing or has invalid format." });
-        return;
+const { User, CourseRole, Course } = require('../../../models');
+
+router.post("/", async (req, res) => {
+  if (!("username" in req.body) || helpers.name_validate(req.body["username"])) {
+    res.status(400).json({ message: "The username is missing or has invalid format." });
+    return;
+  }
+
+  try {
+
+    const user = await User.findOne({
+      where: {
+        username: req.body["username"].toLowerCase(),
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({ message: "Unknown user" });
     }
 
-
-    // generate a jwt token to impersonate the user
-    let sql_login = "SELECT email, admin FROM user_info WHERE username = ($1)";
-    let sql_roles = "SELECT * FROM (course_role JOIN course ON course_role.course_id = course.course_id) WHERE username=($1) AND hidden = false AND course.course_id=($2) ORDER BY course.course_id";
-
-
-    client.query(sql_login, [req.body["username"].toLowerCase()], (err_login, pg_res_login) => {
-      if (err_login) {
-        res.status(404).json({message: "Unknown user"});
-        console.log(err_login);
-      }
-
-      client.query(sql_roles, [req.body["username"].toLowerCase(), parseInt(res.locals["course_id"])], (err_roles, pg_res_roles) => {
-        if (err_roles) {
-          res.status(404).json({message: "Unknown error."});
-          console.log(err_roles);
-          return;
-        }
-
-        let roles = {};
-        let roles_with_details = [];
-        for (let row of pg_res_roles.rows) {
-          roles[row["course_id"]] = row["role"];
-          roles_with_details.push({
-            course_id: row["course_id"],
-            course_code: row["course_code"],
-            course_session: row["course_session"],
-            role: row["role"]
-          });
-        }
-
-        let token = helpers.generateAccessToken(req.body["username"].toLowerCase(), pg_res_login.rows[0]["email"], pg_res_login.rows[0]["admin"], roles);
-        res.json({token: token, roles: roles_with_details});
-      });
+    const rolesWithDetails = await CourseRole.findAll({
+      include: {
+        model: Course,
+        as: 'Course',
+        where: {
+          hidden: false,
+          course_id: parseInt(res.locals["course_id"])
+        },
+      },
+      where: {
+        username: req.body["username"].toLowerCase(), 
+      },
+      order: [['course_id', 'ASC']], 
     });
+
+    // Process roles into the required format
+    let roles = {};
+    let roles_with_details = [];
+
+    for (let row of rolesWithDetails) {
+      roles[row.course_id] = row.role;
+      roles_with_details.push({
+        course_id: row.course_id,
+        course_code: row['course.course_code'],
+        course_session: row['course.course_session'],
+        role: row.role,
+      });
+    }
+
+    // Generate JWT token
+    const token = helpers.generateAccessToken(
+      req.body["username"].toLowerCase(),
+      user.email,
+      user.admin,
+      roles
+    );
+
+    res.json({ token, roles: roles_with_details });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "An internal server error occurred." });
+  }
+
 })
 
 module.exports = router;
