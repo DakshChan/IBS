@@ -3,7 +3,7 @@ const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 
-const { User, CourseRole } = require('../../../models');
+const { User, CourseRole, Course } = require('../../../models');
 
 router.post("/", async (req, res) => {
   if (!("username" in req.body) || helpers.name_validate(req.body["username"])) {
@@ -26,6 +26,7 @@ router.post("/", async (req, res) => {
     const rolesWithDetails = await CourseRole.findAll({
       include: {
         model: Course,
+        as: 'Course',
         where: {
           hidden: false,
         },
