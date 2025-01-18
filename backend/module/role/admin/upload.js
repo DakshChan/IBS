@@ -7,6 +7,9 @@ const path = require("path");
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 
+const { CourseRole, User, Course } = require("../../../models"); // Adjust path to models
+const sequelize = require('../../../helpers/database');
+
 const upload = multer({
   dest: "./tmp/upload/",
 });
@@ -47,100 +50,84 @@ router.post("/", upload.single("file"), async (req, res) => {
     return;
   }
 
-  if (
-    req.body["update_user_info"] === true ||
-    req.body["update_user_info"] === "true"
-  ) {
-    var sql_register =
-      "INSERT INTO user_info (username, password, email) VALUES %L ON CONFLICT (username) DO UPDATE SET email = EXCLUDED.email";
-  } else {
-    var sql_register =
-      "INSERT INTO user_info (username, password, email) VALUES %L ON CONFLICT (username) DO NOTHING";
-  }
+  const csvPath = req.file.destination + req.file.filename;
+  const updateUserInfo = req.body["update_user_info"] === true || req.body["update_user_info"] === "true";
+  const courseId = req.body["course_id"];
+  const role = req.body["role"];
 
-  let sql_upload =
-    "INSERT INTO course_role (username, course_id, role) VALUES %L ON CONFLICT (username, course_id) DO NOTHING; " +
-    "INSERT INTO course_" +
-    req.body["course_id"] +
-    ".user (username) VALUES %L ON CONFLICT (username) DO NOTHING";
+  try {
+    const csvRows = await csv({ noheader: true, output: "csv" }).fromFile(csvPath);
 
-  const csv_path = req.file.destination + req.file.filename;
-  csv({
-    noheader: true,
-    output: "csv",
-  })
-    .fromFile(csv_path)
-    .then(async (csv_row) => {
-      let invalid_username = 0;
-      let invalid_email = 0;
-      let upload_data_all = [];
-      let upload_data_users = [];
-      let register_data = [["test", "initial", "ibs-test@utoronto.ca"]];
-      let totalRows = csv_row.length - 1;
+    let invalidUsername = 0;
+    let invalidEmail = 0;
+    const registerData = [];
+    const uploadDataAll = [];
+    const uploadDataUsers = [];
 
-      for (let j = 1; j < csv_row.length; j++) {
-        if (csv_row[j].length >= 1 && !helpers.name_validate(csv_row[j][0])) {
-          upload_data_users.push([csv_row[j][0]]);
-          upload_data_all.push([
-            csv_row[j][0],
-            req.body["course_id"],
-            req.body["role"],
-          ]);
-          if (csv_row[j].length >= 2 && csv_row[j][1] !== "") {
-            if (helpers.email_validate(csv_row[j][1])) {
-              invalid_email += 1;
-            } else {
-              register_data.push([csv_row[j][0], "initial", csv_row[j][1]]);
-            }
+    // Process rows
+    for (let i = 1; i < csvRows.length; i++) {
+      const row = csvRows[i];
+      if (row.length >= 1 && !helpers.name_validate(row[0])) {
+        uploadDataUsers.push({ username: row[0] });
+        uploadDataAll.push({ username: row[0], course_id: courseId, role });
+
+        if (row.length >= 2 && row[1] !== "") {
+          if (helpers.email_validate(row[1])) {
+            invalidEmail++;
+          } else {
+            registerData.push({ username: row[0], password: "initial", email: row[1] });
           }
-        } else {
-          invalid_username += 1;
         }
+      } else {
+        invalidUsername++;
       }
+    }
 
-      let validRows =
-        totalRows === 0 ? 0 : totalRows - invalid_username - invalid_email;
+    const validRows = csvRows.length - 1 - invalidUsername - invalidEmail;
 
-      if (upload_data_users.length === 0) {
-        res.status(200).json({
-          message: "The file must contain at least 1 valid username.",
+    if (uploadDataUsers.length === 0) {
+      return res.status(400).json({
+        message: "The file must contain at least 1 valid username.",
+      });
+    }
+
+    // Transaction
+    await sequelize.transaction(async (transaction) => {
+      // Register users to IBS
+      if (registerData.length > 0) {
+        await User.bulkCreate(registerData, {
+          transaction,
+          updateOnDuplicate: updateUserInfo ? ["email"] : undefined,
         });
       }
 
-      try {
-        await client.query(format(sql_register, register_data), []);
-        await client.query(
-          format(sql_upload, upload_data_all, upload_data_users)
-        );
-        let message =
-          validRows +
-          " users are added to the course as " +
-          req.body["role"] +
-          ".";
-        res.status(200).json({
-          message: message,
-          added: validRows,
-          registered: validRows,
-          invalid_username: invalid_username,
-          invalid_email: invalid_email,
+      // Add roles to course_role
+      if (uploadDataAll.length > 0) {
+        await CourseRole.bulkCreate(uploadDataAll, {
+          transaction,
+          ignoreDuplicates: true,
         });
-      } catch (err) {
-        if (err.code === "23503" && err.constraint === "username") {
-          let username = err.detail.match(
-            /Key \(username\)=\((.*)\) is not present in table "user_info"\./
-          );
-          res.status(400).json({
-            message:
-              "The username " +
-              username[1] +
-              " is not found in the database and a valid email is not provided.",
-          });
-        } else {
-          res.status(404).json({ message: "Unknown error." });
-          console.error(err);
-        }
       }
     });
+
+    const message = `${validRows} users are added to the course as ${role}.`;
+    res.status(200).json({
+      message,
+      added: validRows,
+      registered: validRows,
+      invalid_username: invalidUsername,
+      invalid_email: invalidEmail,
+    });
+  } catch (err) {
+    if (err.name === "SequelizeForeignKeyConstraintError" && err.index === "username") {
+      return res.status(400).json({
+        message: "A username is missing in the database and no valid email was provided.",
+      });
+    }
+    console.error(err);
+    res.status(500).json({ message: "An unexpected error occurred." });
+  }
+
 });
 
 module.exports = router;
