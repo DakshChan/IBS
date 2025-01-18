@@ -3,22 +3,40 @@ const router = express.Router();
 const client = require("../../../setup/db");
 const helpers = require("../../../utilities/helpers");
 
-router.get("/", (req, res) => {
-    let sql_role = "SELECT course_role.username, email, role, course_id FROM course_role LEFT JOIN user_info ON course_role.username = user_info.username WHERE course_id = ($1)";
-    let sql_role_data = [res.locals["course_id"]];
+const { User, CourseRole } = require("../../../models");
 
-    if ("username" in req.query && !helpers.name_validate(req.query["username"])) {
-        sql_role += " AND course_role.username = ($2)";
-        sql_role_data.push(req.query["username"]);
-    }
+router.get("/", async (req, res) => {
 
-    client.query(sql_role, sql_role_data, (err, pg_res) => {
-        if (err) {
-            res.status(404).json({ message: "Unknown error." });
-        } else {
-            res.status(200).json({ count: pg_res.rows.length, role: pg_res.rows });
+    try {
+        // Base query options
+        const queryOptions = {
+            where: {
+                course_id: res.locals["course_id"],
+            },
+            include: [
+                {
+                    model: User,
+                    as: 'User',
+                    attributes: ['email'], // Specify email column from the User model
+                },
+            ],
+            attributes: ['username', 'role', 'course_id'], // Specify desired columns from CourseRole
+        };
+
+        // Add optional condition for username if present in req.query
+        if ("username" in req.query && helpers.name_validate(req.query["username"])) {
+            queryOptions.where.username = req.query["username"];
         }
-    });
+
+        // Execute query
+        const roles = await CourseRole.findAll(queryOptions);
+
+        // Respond with results
+        res.status(200).json({ count: roles.length, role: roles });
+    } catch (error) {
+        console.error('Error fetching course roles:', error);
+        res.status(404).json({ message: "Unknown error." });
+    }
 })
 
 module.exports = router;
