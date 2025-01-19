@@ -15,6 +15,8 @@ const { GROUP_STATUS } = require("../helpers/constants");
 
 const sequelize = require('../helpers/database');
 
+const { Sequelize } = require("sequelize");
+
 const JWT_EXPIRY = '120m';
 
 // A few helper functions used the old gitlab helpers
@@ -82,10 +84,15 @@ async function weight_validate(new_task_weight, course_id) {
  * Otherwise, return false.
  */
 async function new_weight_validate(new_weight, course_id, task_name) {
-    let pg_res_task = await db.query(
-        'SELECT sum(weight) AS total_weight FROM course_' + course_id + '.task'
-    );
-    let total_weight = pg_res_task.rows[0].total_weight || 0;
+
+    const total_weight_res = await Task.findAll({
+        attributes: [[Sequelize.fn('SUM', Sequelize.col('weight')), 'total_weight']],
+        where: { course_id: course_id }
+    });
+
+
+    const total_weight = parseInt(total_weight_res[0].dataValues.total_weight || 0, 10);
+
     let curr_weight = await get_task_weight(course_id, task_name);
     if (typeof total_weight === 'string') {
         total_weight = parseInt(total_weight);
@@ -199,7 +206,7 @@ function interview_data_filter(query, others_interview, username) {
     if ('time' in query && !time_validate(query['time'])) {
         filter['time'] = query['time'] + ' America/Toronto';
     }
-    
+
     if ('date' in query && !date_validate(query['date'])) {
         const startDate = query['date'] + ' 00:00:00 America/Toronto';
         const endDate = query['date'] + ' 23:59:59 America/Toronto';
@@ -356,36 +363,40 @@ function search_files(username, group_id, course_id, sub_dir = '') {
 }
 
 async function get_courses() {
-    let pg_res = await db.query('SELECT * FROM course ORDER BY course_id', []);
+    const coursesData = await Course.findAll({
+        attributes: ['course_id', 'course_code', 'course_session'], // Select required columns
+        order: [['course_id', 'ASC']], // Order by course_id
+    });
 
-    let courses = {};
-    for (let row of pg_res.rows) {
-        let course = {};
-        course['course_code'] = row['course_code'];
-        course['course_session'] = row['course_session'];
-
-        courses[row['course_id']] = course;
+    const courses = {};
+    for (let row of coursesData) {
+        courses[row.course_id] = {
+            course_code: row.course_code,
+            course_session: row.course_session,
+        };
     }
 
     return courses;
 }
 
 async function get_tasks(course_id) {
-    let pg_res = await db.query(
-        'SELECT * FROM course_' + course_id + '.task ORDER BY due_date, task',
-        []
-    );
+    // Fetch tasks ordered by due_date and task
+    const tasksData = await Task.findAll({
+        attributes: ['due_date', 'hidden', 'weight', 'min_member', 'max_member', 'task'],
+        where: { course_id: course_id },
+        order: [['due_date', 'ASC'], ['task', 'ASC']],
+    });
 
-    let tasks = {};
-    for (let row of pg_res.rows) {
-        let task = {};
-        task['due_date'] = row['due_date'];
-        task['hidden'] = row['hidden'];
-        task['weight'] = row['weight'];
-        task['min_member'] = row['min_member'];
-        task['max_member'] = row['max_member'];
-
-        tasks[row['task']] = task;
+    // Transform the results into the desired structure
+    const tasks = {};
+    for (let row of tasksData) {
+        tasks[row.task] = {
+            due_date: row.due_date,
+            hidden: row.hidden,
+            weight: row.weight,
+            min_member: row.min_member,
+            max_member: row.max_member,
+        };
     }
 
     return tasks;
@@ -470,7 +481,7 @@ async function get_criteria(course_id, task_name) {
 
 async function get_total_out_of(course_id, task_names) {
     let tasks = await Task.findAll({
-        where: {course_id: course_id},
+        where: { course_id: course_id },
         attributes: ["task"]
     });
 
@@ -479,7 +490,7 @@ async function get_total_out_of(course_id, task_names) {
     for (let task of tasks) {
         if (task_names.includes(task.task)) {
             let criteriaSum = await Criteria.sum('total', {
-                where: { task_name: task.dataValues.task}
+                where: { task_name: task.dataValues.task }
             });
             total_out_of[task.dataValues.task] = criteriaSum;
         }
@@ -492,7 +503,7 @@ async function get_group_task(course_id, group_id) {
         const groupModel = await Group.findOne({
             where: { group_id }
         });
-        if (groupModel){
+        if (groupModel) {
             return groupModel.task_id;
         } else {
             return '';
@@ -518,25 +529,25 @@ async function get_group_id(course_id, task, username) {
         console.error("Error occurred while finding groupUser:", error);
         throw error;
     }
-// TODO: Remove if not needed
-//     const task_item = await Task.findOne({
-//         where: {
-//             course_id,
-//             task
-//         }
-//     });
+    // TODO: Remove if not needed
+    //     const task_item = await Task.findOne({
+    //         where: {
+    //             course_id,
+    //             task
+    //         }
+    //     });
 
-//     const users_group = await GroupUser.findOne({
-//         where: {
-//             task_id: task_item.id,
-//             status: GROUP_STATUS.confirmed,
-//             username
-//         }
-//     })
+    //     const users_group = await GroupUser.findOne({
+    //         where: {
+    //             task_id: task_item.id,
+    //             status: GROUP_STATUS.confirmed,
+    //             username
+    //         }
+    //     })
 
-//     if (!users_group) return -1;
+    //     if (!users_group) return -1;
 
-//     return users_group.group_id;
+    //     return users_group.group_id;
 }
 
 
@@ -550,8 +561,8 @@ async function get_group_users(course_id, group_id) {
 
     for (const info of information) {
         // If task_id matches course_ids
-         const course = await Task.findOne({
-            where: {task_id: info.task_id, course_id: course_id },
+        const course = await Task.findOne({
+            where: { task_id: info.task_id, course_id: course_id },
             attributes: ['course_id']
         });
 
@@ -579,7 +590,7 @@ async function get_group_users(course_id, group_id) {
 
 async function get_all_group_users(course_id, task) {
     const information = await Task.findAll({
-        where: { course_id: course_id, task: task},
+        where: { course_id: course_id, task: task },
         attributes: ['id', 'course_id']
     });
 
@@ -592,7 +603,7 @@ async function get_all_group_users(course_id, task) {
     for (const info of information) {
         try {
             const user_info = await GroupUser.findAll({
-                where: {task_id: info.dataValues.id},
+                where: { task_id: info.dataValues.id },
                 attributes: ['group_id', 'username']
             });
 
@@ -709,7 +720,7 @@ async function format_marks_one_task(json, course_id, task, total) {
     let all_criteria = await get_criteria(course_id, task);
 
     if (all_criteria === null) {
-        return { "error": "Task not found"};
+        return { "error": "Task not found" };
     }
 
     if (Object.keys(all_criteria).length === 0) {
@@ -730,7 +741,7 @@ async function format_marks_one_task(json, course_id, task, total) {
 
         // Find Criteria name from Criteria ID
         let criteria_name = await Criteria.findOne({
-            where: {id: row.dataValues.criteria_id},
+            where: { id: row.dataValues.criteria_id },
             attributes: ["criteria"]
         });
 
@@ -764,7 +775,7 @@ async function format_marks_one_task(json, course_id, task, total) {
  */
 async function get_task_weight(course_id, task_name) {
     let task = await Task.findOne({
-        where: {course_id: course_id, task: task_name},
+        where: { course_id: course_id, task: task_name },
         attributes: ['weight']
     });
 
@@ -985,7 +996,7 @@ async function get_user_token_usage(course_id, user, task) {
     let totalTokenUsed = 0;
 
     await submissionModels.forEach(submission => {
-        if (submission.task !== task){
+        if (submission.task !== task) {
             totalTokenUsed += submission.token_used;
         }
     });
@@ -1005,8 +1016,8 @@ async function get_due_date(course_id, group_id) {
         },
         attributes: ['task_id', 'extension']
     })
-    
-    if (!group){
+
+    if (!group) {
         return { due_date: null };
     }
     const task_id = group.task_id;
@@ -1016,7 +1027,7 @@ async function get_due_date(course_id, group_id) {
             id: task_id
         }
     })
-    if (!task.due_date){
+    if (!task.due_date) {
         return { due_date: null };
     }
     due_date = moment(task.due_date).tz('America/Toronto');
