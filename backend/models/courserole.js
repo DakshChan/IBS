@@ -33,6 +33,10 @@ CourseRole.init({
   role: {
     type: DataTypes.STRING,
     allowNull: false,
+  },
+  token_count: {
+    type: DataTypes.INTEGER,
+    allowNull: true // since course role can be more than a student
   }
 }, {
   sequelize,

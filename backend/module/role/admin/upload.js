@@ -56,6 +56,18 @@ router.post("/", upload.single("file"), async (req, res) => {
   const role = req.body["role"];
 
   try {
+    // Fetch default token count for the course
+    const course = await Course.findOne({
+      attributes: ["default_token_count"],
+      where: { course_id: courseId },
+    });
+
+    if (!course) {
+      return res.status(400).json({ message: "The course id is not found or invalid." });
+    }
+
+    const defaultTokenCount = course.default_token_count;
+
     const csvRows = await csv({ noheader: true, output: "csv" }).fromFile(csvPath);
 
     let invalidUsername = 0;
@@ -68,8 +80,14 @@ router.post("/", upload.single("file"), async (req, res) => {
     for (let i = 1; i < csvRows.length; i++) {
       const row = csvRows[i];
       if (row.length >= 1 && !helpers.name_validate(row[0])) {
+        
         uploadDataUsers.push({ username: row[0] });
-        uploadDataAll.push({ username: row[0], course_id: courseId, role });
+
+        const roleData = { username: row[0], course_id: courseId, role };
+        if (role === "student") {
+          roleData.token_count = defaultTokenCount; // Add token count for students
+        }
+        uploadDataAll.push(roleData);
 
         if (row.length >= 2 && row[1] !== "") {
           if (helpers.email_validate(row[1])) {

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 // const { User, CourseRole } = require("../../../models"); // Adjust path as needed
-const { User, CourseRole } = require("../../../models");
+const { User, CourseRole, Course } = require("../../../models");
 const helpers = require("../../../utilities/helpers");
 const adminMiddleware = require("../../auth/admin/middleware");
 
@@ -32,7 +32,23 @@ router.post("/", adminMiddleware, async (req, res) => {
             await User.findOrCreate({ where: { username: userInfo.username }, defaults: userInfo });
         }
 
-        const courseRole = { username: userInfo.username, course_id: req.body["course_id"], role: req.body["role"] };
+        // obtain the token count for the course, if it exists
+
+        const course_token_count = await Course.findOne({
+            attributes: ["default_token_count"],
+            where: {
+                course_id: req.body["course_id"]
+            }
+        })
+
+        if (!course_token_count) {
+            return res.status(400).json({ message: "The course id is not found or invalid." });
+        }
+
+        let courseRole = { username: userInfo.username, course_id: req.body["course_id"], role: req.body["role"] };
+        if (req.body["role"] === "student") { // only students have tokens :)
+            courseRole.token_count = course_token_count.default_token_count;
+        }
         await CourseRole.create(courseRole);
 
         res.status(200).json({ message: "The user is registered if needed and the role is added." });

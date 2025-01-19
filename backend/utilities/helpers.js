@@ -8,7 +8,7 @@ const transporter = require('../setup/email');
 const db = require('../setup/db');
 
 const { Op } = require('sequelize');
-const { Task, Criteria, TaskGroup, GroupUser, Group, User, Course, Submission } = require("../models");
+const { Task, Criteria, TaskGroup, GroupUser, Group, User, Course, Submission, CourseRole } = require("../models");
 
 const { VersionControlSystem } = require("../lib/version_control");
 const { GROUP_STATUS } = require("../helpers/constants");
@@ -934,22 +934,29 @@ async function format_marks_all_tasks_csv(json, course_id, res, total) {
     });
 }
 
-async function get_max_user_tokens(course_id, user, group_id) {
+async function get_max_user_tokens(course_id, username, group_id) {
     const course = await Course.findOne({
         where: {
-            course_id
+            course_id: course_id
         }
     })
+
+    const courseRole = await CourseRole.findOne({
+        attributes: ["token_count"],
+        where: { course_id: course_id, username: username }
+    })
+
+
     const default_token_count = course.default_token_count;
     const default_token_length = course.token_length;
 
-    if (!default_token_count || !user.token_count) {
+    if (!default_token_count || !courseRole.token_count) {
         return { token_count: -1, token_length: -1 };
     }
 
     let token_count = -1;
-    if (user.token_count !== -1) {
-        token_count = user.token_count;
+    if (courseRole.token_count !== -1) {
+        token_count = courseRole.token_count;
     } else {
         token_count = default_token_count;
     }
